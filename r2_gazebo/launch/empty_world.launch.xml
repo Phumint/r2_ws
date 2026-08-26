@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!--
+  Minimal isolated test rig: empty world + robot + controllers.
+
+  Deliberately NO localisation and NO RViz. This is the launch you use to answer
+  "is the mecanum drive itself working?" without an EKF in the loop that could
+  mask or invent behaviour. For the full stack use r2_bringup/launch/sim.launch.xml.
+
+  Usage:
+    ros2 launch r2_gazebo empty_world.launch.xml
+    (see the package README for the teleop command; it cannot be written here
+     because XML comments may not contain a double hyphen)
+-->
+<launch>
+
+  <arg name="gui" default="true"/>
+  <arg name="contact_model" default="friction"/>
+  <arg name="world" default="$(find-pkg-share r2_gazebo)/worlds/empty.sdf"/>
+  <arg name="publish_roller_states" default="false"/>
+  <arg name="mecanum_roller_count" default="8"/>
+  <arg name="mecanum_roller_damping" default="0.0"/>
+  <arg name="mecanum_roller_friction" default="0.0"/>
+  <arg name="mecanum_mu_slip" default="0.05"/>
+  <arg name="mecanum_mu_grip" default="1.0"/>
+
+  <include file="$(find-pkg-share r2_gazebo)/launch/world.launch.xml">
+    <arg name="world" value="$(var world)"/>
+    <arg name="gui" value="$(var gui)"/>
+  </include>
+
+  <include file="$(find-pkg-share r2_gazebo)/launch/spawn_robot.launch.xml">
+    <arg name="contact_model" value="$(var contact_model)"/>
+    <arg name="mecanum_mu_slip" value="$(var mecanum_mu_slip)"/>
+    <arg name="mecanum_mu_grip" value="$(var mecanum_mu_grip)"/>
+    <arg name="publish_roller_states" value="$(var publish_roller_states)"/>
+    <arg name="mecanum_roller_count" value="$(var mecanum_roller_count)"/>
+    <arg name="mecanum_roller_damping" value="$(var mecanum_roller_damping)"/>
+    <arg name="mecanum_roller_friction" value="$(var mecanum_roller_friction)"/>
+  </include>
+
+  <include file="$(find-pkg-share r2_control)/launch/control.launch.xml"/>
+
+</launch>

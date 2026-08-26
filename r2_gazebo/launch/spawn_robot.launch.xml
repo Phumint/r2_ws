@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<!--
+  Publishes the robot description and spawns the model into a running Gazebo.
+
+  robot_state_publisher must be up BEFORE `create` runs: the spawner reads the
+  model from the /robot_description topic, and gz_ros2_control reads the same
+  topic to build its hardware interfaces.
+-->
+<launch>
+
+  <arg name="use_sim_time" default="true"/>
+  <arg name="contact_model" default="friction"
+       description="friction | rollers. See r2_description/README.md. Both are
+                    holonomic; 'friction' is 5 links and stops reliably,
+                    'rollers' is 37 links, more faithful, and coasts."/>
+  <arg name="use_ground_truth" default="true"
+       description="Emit the Gazebo odometry-publisher plugin used to score
+                    odometry and the EKF. Simulation only."/>
+  <arg name="controllers_file"
+       default="$(find-pkg-share r2_control)/config/r2_controllers.yaml"/>
+  <arg name="mecanum_roller_count" default="8"/>
+  <arg name="mecanum_roller_damping" default="0.0"/>
+  <arg name="mecanum_roller_friction" default="0.0"/>
+  <arg name="publish_roller_states" default="false"
+       description="Publish the passive roller joints on /joint_states so the TF
+                    tree is complete. Adds 32 fast-changing frames to /tf."/>
+  <arg name="mecanum_mu_slip" default="0.05"
+       description="Friction ACROSS fdir1, the roller free-run direction. Lands
+                    in SDF mu2."/>
+  <arg name="mecanum_mu_grip" default="1.0"
+       description="Friction ALONG fdir1, the roller axle direction. Lands in
+                    SDF mu. Set equal to mecanum_mu_slip for an isotropic-wheel
+                    baseline."/>
+  <arg name="entity_name" default="r2"
+       description="Gazebo model name. Must match the gz_topic_name prefix for
+                    ground-truth odometry in ros_gz_bridge.yaml."/>
+
+  <arg name="x" default="0.0"/>
+  <arg name="y" default="0.0"/>
+  <arg name="z" default="0.15"/>
+  <arg name="yaw" default="0.0"/>
+
+  <!--
+    robot_description is necessarily computed in the launch file: it is the one
+    parameter that cannot live in a static YAML, because it is the output of
+    running xacro over arguments chosen at launch time.
+  -->
+  <let name="robot_description"
+       value="$(command 'xacro $(find-pkg-share r2_description)/urdf/r2.urdf.xacro
+                         use_sim:=true
+                         use_ros2_control:=true
+                         contact_model:=$(var contact_model)
+                         use_ground_truth:=$(var use_ground_truth)
+                         controllers_file:=$(var controllers_file)
+                         mecanum_mu_slip:=$(var mecanum_mu_slip)
+                         mecanum_mu_grip:=$(var mecanum_mu_grip)
+                         publish_roller_states:=$(var publish_roller_states)
+                         mecanum_roller_count:=$(var mecanum_roller_count)
+                         mecanum_roller_damping:=$(var mecanum_roller_damping)
+                         mecanum_roller_friction:=$(var mecanum_roller_friction)')"/>
+
+  <node pkg="robot_state_publisher" exec="robot_state_publisher"
+        name="robot_state_publisher" output="screen">
+    <param name="robot_description" value="$(var robot_description)" type="str"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+  <!--
+    z defaults to 0.15 rather than 0: dropping the robot a few centimetres lets
+    the contacts settle cleanly instead of starting inter-penetrated with the
+    ground plane, which can launch it.
+  -->
+  <node pkg="ros_gz_sim" exec="create" name="spawn_r2" output="screen"
+        args="-topic robot_description
+              -name $(var entity_name)
+              -allow_renaming true
+              -x $(var x) -y $(var y) -z $(var z) -Y $(var yaw)"/>
+
+</launch>

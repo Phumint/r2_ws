@@ -1,0 +1,111 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control hardware description.
+
+  THIS IS THE HARDWARE SWAP POINT. Everything above it (the controllers, their
+  config, topic names, odometry maths, the TF tree, the EKF) is identical in
+  simulation and on the real robot. Moving to real motors means writing one
+  hardware_interface::SystemInterface plugin and flipping use_sim to false -
+  no other file in this workspace changes.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="r2_ros2_control" params="use_sim controllers_file
+                                             contact_model:='friction'
+                                             publish_roller_states:=^|false">
+
+    <ros2_control name="R2System" type="system">
+
+      <hardware>
+        <xacro:if value="${use_sim}">
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+        </xacro:if>
+        <xacro:unless value="${use_sim}">
+          <!--
+            Not implemented yet - simulation-first, by design. When the real
+            base exists, this plugin reads the four encoder counts and writes
+            the four wheel velocity setpoints. Nothing else needs to change.
+          -->
+          <plugin>r2_hardware/R2SystemHardware</plugin>
+          <param name="serial_port">/dev/ttyACM0</param>
+          <param name="baud_rate">115200</param>
+        </xacro:unless>
+      </hardware>
+
+      <!--
+        Four velocity-commanded wheels with position+velocity feedback.
+        Position is exported because it is what a real incremental encoder
+        actually integrates, and joint_state_broadcaster needs it for TF.
+      -->
+      <xacro:r2_wheel_interface joint="front_left_wheel_joint"/>
+      <xacro:r2_wheel_interface joint="front_right_wheel_joint"/>
+      <xacro:r2_wheel_interface joint="rear_left_wheel_joint"/>
+      <xacro:r2_wheel_interface joint="rear_right_wheel_joint"/>
+
+      <!--
+        Optional: export the passive roller joints as STATE-ONLY interfaces.
+
+        Without this, /joint_states carries only the four wheel joints, so
+        robot_state_publisher has no way to compute the 32 wheel_link ->
+        roller_link transforms and the roller links are simply absent from TF.
+        RViz then reports them as missing on the RobotModel display.
+
+        It is off by default because those transforms serve no consumer - no
+        sensor is mounted on a roller and nothing plans against one - while
+        publishing them adds 32 rapidly-changing transforms to /tf. Turn it on
+        when you want a complete TF tree or want to watch the rollers turn.
+      -->
+      <xacro:if value="${publish_roller_states and contact_model == 'rollers'}">
+        <xacro:roller_state_interfaces prefix="front_left"  index="0"/>
+        <xacro:roller_state_interfaces prefix="front_right" index="0"/>
+        <xacro:roller_state_interfaces prefix="rear_left"   index="0"/>
+        <xacro:roller_state_interfaces prefix="rear_right"  index="0"/>
+      </xacro:if>
+
+    </ros2_control>
+
+    <xacro:if value="${use_sim}">
+      <gazebo>
+        <plugin filename="gz_ros2_control-system"
+                name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+          <!--
+            The controller_manager runs INSIDE this plugin, in the Gazebo
+            process. It therefore does not exist until the model is spawned,
+            which is why the spawners in r2_control use a generous
+            "controller-manager-timeout" spawner argument.
+          -->
+          <parameters>${controllers_file}</parameters>
+          <controller_manager_name>controller_manager</controller_manager_name>
+        </plugin>
+      </gazebo>
+    </xacro:if>
+
+  </xacro:macro>
+
+  <!--
+    Passive rollers: state only, no command interface. They are driven by
+    contact with the ground, never by an actuator.
+  -->
+  <xacro:macro name="roller_state_interfaces" params="prefix index">
+    <xacro:if value="${index &lt; mecanum_roller_count}">
+      <joint name="${prefix}_roller_${index}_joint">
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+      <xacro:roller_state_interfaces prefix="${prefix}" index="${index + 1}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- One wheel's interface block. Limits mirror the URDF joint limits. -->
+  <xacro:macro name="r2_wheel_interface" params="joint">
+    <joint name="${joint}">
+      <command_interface name="velocity">
+        <param name="min">${-max_wheel_vel}</param>
+        <param name="max">${max_wheel_vel}</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+</robot>

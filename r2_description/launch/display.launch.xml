@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!--
+  Visualise the robot description on its own - no Gazebo, no controllers, no
+  physics.
+
+  This is the fastest way to check the URDF: link geometry, joint placement,
+  sensor mounting and the TF tree, with nothing else running that could explain
+  away a mistake. joint_state_publisher_gui gives sliders for the four wheel
+  joints so the axes can be confirmed by eye.
+
+  use_sim:=false strips the Gazebo sensor and plugin blocks, and
+  use_ros2_control:=false omits the <ros2_control> block, which would otherwise
+  describe a controller_manager that is not running.
+
+  Usage:
+    ros2 launch r2_description display.launch.xml
+-->
+<launch>
+
+  <arg name="rviz" default="true"/>
+  <arg name="jsp_gui" default="true"
+       description="joint_state_publisher_gui sliders. false publishes zeros."/>
+  <arg name="contact_model" default="friction"
+       description="Set to 'rollers' to eyeball the explicit roller geometry."/>
+
+  <let name="robot_description"
+       value="$(command 'xacro $(find-pkg-share r2_description)/urdf/r2.urdf.xacro
+                         use_sim:=false
+                         use_ros2_control:=false
+                         contact_model:=$(var contact_model)')"/>
+
+  <node pkg="robot_state_publisher" exec="robot_state_publisher"
+        name="robot_state_publisher" output="screen">
+    <param name="robot_description" value="$(var robot_description)" type="str"/>
+    <param name="use_sim_time" value="false"/>
+  </node>
+
+  <group if="$(var jsp_gui)">
+    <node pkg="joint_state_publisher_gui" exec="joint_state_publisher_gui"
+          name="joint_state_publisher_gui" output="screen"/>
+  </group>
+  <group unless="$(var jsp_gui)">
+    <node pkg="joint_state_publisher" exec="joint_state_publisher"
+          name="joint_state_publisher" output="screen"/>
+  </group>
+
+  <group if="$(var rviz)">
+    <node pkg="rviz2" exec="rviz2" name="rviz2" output="screen"
+          args="-d $(find-pkg-share r2_description)/config/r2_view.rviz"/>
+  </group>
+
+</launch>

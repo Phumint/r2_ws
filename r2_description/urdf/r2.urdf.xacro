@@ -1,0 +1,102 @@
+<?xml version="1.0"?>
+<!--
+  R2 - ABU Robocon holonomic (mecanum) mobile base.
+
+  Top-level description. Include this file, never the parts directly.
+
+  Arguments:
+    use_sim         true  -> gz_ros2_control hardware + Gazebo sensor plugins
+                    false -> real hardware plugin, no Gazebo tags
+    use_ros2_control true -> emit the <ros2_control> block. Set false only for
+                    pure visualisation (e.g. joint_state_publisher_gui), where
+                    a controller_manager would have nothing to talk to.
+    controllers_file absolute path to the controller YAML, read by the
+                    gz_ros2_control plugin inside the Gazebo process.
+    contact_model   friction | rollers  - see r2_description/README.md
+    use_ground_truth emit the ground-truth odometry plugin (simulation only)
+
+  Usage:
+    xacro r2.urdf.xacro use_sim:=true contact_model:=friction
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       xmlns:gz="http://gazebosim.org/schema"
+       name="r2">
+
+  <xacro:arg name="use_sim"          default="true"/>
+  <xacro:arg name="use_ros2_control" default="true"/>
+  <xacro:arg name="controllers_file" default=""/>
+  <xacro:arg name="contact_model"    default="friction"/>
+  <xacro:arg name="use_ground_truth" default="true"/>
+
+  <!--
+    Publish the 32 passive roller joints on /joint_states so that
+    robot_state_publisher can complete the TF tree. Off by default: those
+    transforms have no consumer and add 32 fast-changing frames to /tf.
+  -->
+  <xacro:arg name="publish_roller_states" default="false"/>
+
+  <!-- Roller geometry and bearing losses, see common_properties.xacro. -->
+  <xacro:arg name="mecanum_roller_count"    default="8"/>
+  <xacro:arg name="mecanum_roller_damping"  default="0.0"/>
+  <xacro:arg name="mecanum_roller_friction" default="0.0"/>
+
+  <!-- Mecanum contact friction, see common_properties.xacro. -->
+  <xacro:arg name="mecanum_mu_slip" default="0.05"/>
+  <xacro:arg name="mecanum_mu_grip" default="1.0"/>
+
+  <!-- ==================================================================== -->
+  <!-- Includes. Order matters: properties and macros before their users.    -->
+  <!-- ==================================================================== -->
+  <xacro:include filename="$(find r2_description)/urdf/common_properties.xacro"/>
+  <xacro:include filename="$(find r2_description)/urdf/inertial_macros.xacro"/>
+  <xacro:include filename="$(find r2_description)/urdf/base.xacro"/>
+  <xacro:include filename="$(find r2_description)/urdf/mecanum_wheel.xacro"/>
+  <xacro:include filename="$(find r2_description)/urdf/sensors.xacro"/>
+  <xacro:include filename="$(find r2_description)/urdf/r2.ros2_control.xacro"/>
+  <xacro:include filename="$(find r2_description)/urdf/r2.gazebo.xacro"/>
+
+  <!-- ==================================================================== -->
+  <!-- Wheels                                                               -->
+  <!-- ==================================================================== -->
+  <!--
+    roller_dir follows the X configuration: wheels on the same diagonal share a
+    rake direction. See the diagram in mecanum_wheel.xacro.
+
+    The polarity below (front_left = -1) was determined by MEASUREMENT, not by
+    derivation. With the opposite assignment the robot drives forward correctly
+    but strafes and yaws in the WRONG DIRECTION, because vx is the common mode
+    of all four wheels and is insensitive to roller rake, while vy and wz are
+    differential modes whose sign flips with it. If you ever rebuild the roller
+    geometry, re-run the holonomic check before trusting the signs.
+  -->
+  <xacro:mecanum_wheel prefix="front_left"
+                       x_off="${wheel_x_off}"  y_off="${wheel_y_off}"
+                       roller_dir="-1" contact_model="$(arg contact_model)"/>
+
+  <xacro:mecanum_wheel prefix="front_right"
+                       x_off="${wheel_x_off}"  y_off="${-wheel_y_off}"
+                       roller_dir="1"  contact_model="$(arg contact_model)"/>
+
+  <xacro:mecanum_wheel prefix="rear_left"
+                       x_off="${-wheel_x_off}" y_off="${wheel_y_off}"
+                       roller_dir="1"  contact_model="$(arg contact_model)"/>
+
+  <xacro:mecanum_wheel prefix="rear_right"
+                       x_off="${-wheel_x_off}" y_off="${-wheel_y_off}"
+                       roller_dir="-1" contact_model="$(arg contact_model)"/>
+
+  <!-- ==================================================================== -->
+  <!-- Control and simulation                                               -->
+  <!-- ==================================================================== -->
+  <xacro:if value="$(arg use_ros2_control)">
+    <xacro:r2_ros2_control use_sim="$(arg use_sim)"
+                           controllers_file="$(arg controllers_file)"
+                           contact_model="$(arg contact_model)"
+                           publish_roller_states="$(arg publish_roller_states)"/>
+  </xacro:if>
+
+  <xacro:if value="$(arg use_sim)">
+    <xacro:r2_gazebo_sensors use_ground_truth="$(arg use_ground_truth)"/>
+  </xacro:if>
+
+</robot>

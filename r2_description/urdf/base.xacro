@@ -1,0 +1,113 @@
+<?xml version="1.0"?>
+<!--
+  Chassis and the REP-105 frame root.
+
+  Frame chain established here:
+      base_footprint          ground-projected origin, z = 0 at the floor
+        -> base_link          rigid body origin, at wheel axle height
+             -> chassis_link  the physical box
+             -> mast_link     raises the LIDAR clear of the chassis
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!--
+    base_footprint is massless by REP-105 convention: it is a pose reference,
+    not a body. It carries no inertial or collision element on purpose.
+    robot_localization publishes odom -> base_footprint.
+  -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child  link="base_link"/>
+    <!-- base_link sits at the wheel axle, i.e. one wheel radius off the floor. -->
+    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+  </joint>
+
+  <!--
+    base_link is the kinematic root of the rigid body. It holds no geometry so
+    that the chassis can be repositioned without moving the frame every sensor
+    and wheel is measured against.
+  -->
+  <link name="base_link"/>
+
+  <joint name="chassis_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="chassis_link"/>
+    <!-- Chassis sits on top of base_link, so its centroid is half its height up. -->
+    <origin xyz="0 0 ${chassis_z / 2}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="chassis_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_x} ${chassis_y} ${chassis_z}"/>
+      </geometry>
+      <material name="r2_chassis_grey"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_x} ${chassis_y} ${chassis_z}"/>
+      </geometry>
+    </collision>
+
+    <xacro:box_inertial mass="${chassis_mass}"
+                        x="${chassis_x}" y="${chassis_y}" z="${chassis_z}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:box_inertial>
+  </link>
+
+  <!-- Front marker, so "forward" is unambiguous in RViz and the Gazebo GUI. -->
+  <joint name="front_marker_joint" type="fixed">
+    <parent link="chassis_link"/>
+    <child  link="front_marker_link"/>
+    <origin xyz="${chassis_x / 2 - 0.005} 0 ${chassis_z / 2 - 0.030}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="front_marker_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.010 ${chassis_y * 0.5} 0.020"/>
+      </geometry>
+      <material name="r2_accent_red"/>
+    </visual>
+  </link>
+
+  <!--
+    Sensor mast. Its only job is to lift the 2D LIDAR above the 0.60 m chassis
+    so the body cannot occlude the 360 deg scan, while keeping the top of the
+    LIDAR under the height_max envelope.
+  -->
+  <joint name="mast_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="mast_link"/>
+    <origin xyz="0 0 ${chassis_top_z + mast_height / 2}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="mast_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${mast_radius}" length="${mast_height}"/>
+      </geometry>
+      <material name="r2_chassis_grey"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${mast_radius}" length="${mast_height}"/>
+      </geometry>
+    </collision>
+
+    <xacro:cylinder_inertial_z mass="${mast_mass}"
+                               radius="${mast_radius}" length="${mast_height}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:cylinder_inertial_z>
+  </link>
+
+</robot>

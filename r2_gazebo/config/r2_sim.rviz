@@ -1,0 +1,148 @@
+## RViz layout for the full simulation.
+##
+## Fixed frame is `odom`, so drift of the EKF estimate against the world shows
+## up as the robot sliding relative to the grid.
+##
+## Sensor displays use Best Effort reliability to match the SENSOR_DATA QoS the
+## ros_gz_bridge publishes with (see r2_gazebo/config/ros_gz_bridge.yaml). If
+## these are set to Reliable the topics connect but no messages ever arrive.
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /RobotModel1
+        - /LaserScan1
+        - /Odometry (EKF)1
+      Splitter Ratio: 0.5
+    Tree Height: 640
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 20
+      Color: 160; 160; 164
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Enabled: true
+      Description Topic:
+        Value: /robot_description
+        Depth: 5
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Visual Enabled: true
+      Collision Enabled: false
+      Alpha: 1
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Marker Scale: 0.4
+      Show Axes: true
+      Show Names: false
+      Show Arrows: false
+      Update Interval: 0
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan
+      Enabled: true
+      Topic:
+        Value: /scan
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Size (m): 0.03
+      Style: Spheres
+      Color: 255; 85; 0
+      Color Transformer: FlatColor
+      Decay Time: 0
+    - Class: rviz_default_plugins/PointCloud2
+      Name: DepthCloud
+      ## Off by default: the point cloud is the most expensive thing in the
+      ## scene, on both the Gazebo and the RViz side. Turn it on deliberately.
+      Enabled: false
+      Topic:
+        Value: /camera/depth/points
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Size (m): 0.01
+      Style: Points
+      Color Transformer: RGB8
+      Decay Time: 0
+    - Class: rviz_default_plugins/Image
+      Name: CameraColor
+      Enabled: false
+      Topic:
+        Value: /camera/color/image_raw
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+    - Class: rviz_default_plugins/Odometry
+      Name: Odometry (EKF)
+      Enabled: true
+      Topic:
+        Value: /odometry/filtered
+        Depth: 10
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Keep: 300
+      Position Tolerance: 0.05
+      Angle Tolerance: 0.05
+      Shape:
+        Color: 0; 200; 0
+        Alpha: 1
+        Shaft Length: 0.15
+        Shaft Radius: 0.02
+        Head Length: 0.07
+        Head Radius: 0.05
+      Covariance:
+        Value: false
+    - Class: rviz_default_plugins/Odometry
+      Name: Odometry (ground truth)
+      ## The scoring reference. Divergence between this and the green EKF trace
+      ## IS the odometry error.
+      Enabled: true
+      Topic:
+        Value: /ground_truth/odom
+        Depth: 10
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Keep: 300
+      Position Tolerance: 0.05
+      Angle Tolerance: 0.05
+      Shape:
+        Color: 200; 200; 0
+        Alpha: 1
+        Shaft Length: 0.15
+        Shaft Radius: 0.02
+        Head Length: 0.07
+        Head Radius: 0.05
+      Covariance:
+        Value: false
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: odom
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 6
+      Pitch: 0.6
+      Yaw: 0.8
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+Window Geometry:
+  Height: 900
+  Width: 1500
+  Displays:
+    collapsed: false

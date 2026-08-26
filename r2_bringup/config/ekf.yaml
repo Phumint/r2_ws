@@ -1,0 +1,129 @@
+# robot_localization EKF: wheel odometry + IMU -> odom -> base_footprint.
+#
+# WHY AN EKF AND NOT A COMPLEMENTARY FILTER
+# Mecanum wheel odometry's worst-estimated quantity is yaw. Roller slip on all
+# four wheels compounds into heading with no redundancy to cancel it, while a
+# MEMS gyro is excellent at short-term yaw rate. So the fusion has one specific
+# job: take vx/vy from the wheels, take vyaw from the gyro. A hand-rolled
+# complementary filter would mean custom code to write and test, would emit no
+# covariance (nav2 needs it), and would not generalise when a second pose source
+# arrives. This is the proven, config-driven option.
+#
+# This file is the package default. Copy it rather than editing it in place.
+
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+
+    # 50 Hz: twice the fastest thing anyone downstream needs, and well under the
+    # 100 Hz controller and IMU rates so no input is starved.
+    frequency: 50.0
+    sensor_timeout: 0.1
+
+    # The robot is a rigid planar base with no suspension. This constrains z,
+    # roll and pitch to zero instead of letting them random-walk on integrated
+    # accelerometer noise. Cheap and strictly beneficial here.
+    two_d_mode: true
+
+    publish_tf: true
+    publish_acceleration: false
+
+    # REP-105 frames. This node is the ONLY publisher of odom -> base_footprint;
+    # mecanum_drive_controller has enable_odom_tf set false for that reason.
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
+
+    # ------------------------------------------------------------------
+    # odom0: wheel odometry from mecanum_drive_controller
+    #
+    # Config order is:
+    #   [x,     y,     z,
+    #    roll,  pitch, yaw,
+    #    vx,    vy,    vz,
+    #    vroll, vpitch, vyaw,
+    #    ax,    ay,    az]
+    #
+    # Only vx and vy are fused. Pose is NOT fused because it is merely the
+    # integral of those velocities -- fusing both double-counts the same
+    # information and makes the filter overconfident. vyaw is NOT fused either:
+    # that is deliberately left to the gyro.
+    # ------------------------------------------------------------------
+    odom0: /mecanum_drive_controller/odometry
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  false,
+                   false, false, false,
+                   false, false, false]
+    odom0_differential: false
+    odom0_relative: false
+    odom0_queue_size: 10
+    odom0_twist_rejection_threshold: 3.0
+
+    # ------------------------------------------------------------------
+    # imu0
+    #
+    # Absolute orientation is deliberately NOT fused. Gazebo's IMU derives
+    # orientation from ground truth, so fusing it would give the simulated robot
+    # a drift-free heading that no real gyro-without-magnetometer can deliver,
+    # hiding exactly the error this filter exists to manage. Only yaw RATE and
+    # the horizontal accelerations are used, which is what real hardware gives.
+    # ------------------------------------------------------------------
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  true,  true,  false]
+    imu0_differential: false
+    imu0_relative: true
+    imu0_queue_size: 10
+    imu0_remove_gravitational_acceleration: true
+    imu0_twist_rejection_threshold: 5.0
+    imu0_linear_acceleration_rejection_threshold: 10.0
+
+    # ------------------------------------------------------------------
+    # Process noise. Diagonal of the 15x15 matrix, same variable order as the
+    # _config vectors above.
+    #
+    # The z/roll/pitch entries are tiny because two_d_mode pins them anyway.
+    # The yaw entry is comparatively large: it says "heading is the state we
+    # trust least between measurements", which is what makes the filter lean on
+    # the gyro rather than on integrated wheel velocities.
+    # ------------------------------------------------------------------
+    process_noise_covariance: [0.02, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.02, 0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  1e-6, 0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  1e-6, 0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  1e-6, 0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.05, 0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.025, 0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.025, 0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   1e-6,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   1e-6, 0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  1e-6, 0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.02, 0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.01, 0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.01, 0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  1e-6]
+
+    # Initial state uncertainty. Generous, so early measurements dominate.
+    initial_estimate_covariance: [1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0,  0.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0,  0.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1.0,  0.0,
+                                  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9]
+
+    print_diagnostics: true
+    debug: false

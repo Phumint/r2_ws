@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!--
+  Starts Gazebo Harmonic and the ROS <-> Gazebo topic bridge.
+
+  Does NOT spawn the robot; see spawn_robot.launch.xml. Kept separate so a world
+  can be inspected on its own, and so the bridge (which is world-scoped, not
+  robot-scoped) has exactly one owner.
+-->
+<launch>
+
+  <arg name="world"
+       default="$(find-pkg-share r2_gazebo)/worlds/empty.sdf"
+       description="Absolute path to the world SDF. Any replacement must keep the
+                    Sensors and Imu system plugins or the robot's sensors go silent."/>
+  <arg name="gui" default="true"
+       description="Run the Gazebo GUI. false gives a headless server, for CI."/>
+  <arg name="paused" default="false"
+       description="Start paused. The controller spawners tolerate this via
+                    their switch-timeout."/>
+  <arg name="bridge_config"
+       default="$(find-pkg-share r2_gazebo)/config/ros_gz_bridge.yaml"/>
+
+  <!--
+    Assemble the gz command line:
+      -s   server only (no GUI)
+      -r   run immediately rather than starting paused
+      -v3  warnings and errors, without the per-frame chatter of -v4
+  -->
+  <let name="gz_args"
+       value="$(eval &quot;('-s ' if '$(var gui)' == 'false' else '') + ('' if '$(var paused)' == 'true' else '-r ') + '-v3 $(var world)'&quot;)"/>
+
+  <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py">
+    <arg name="gz_args" value="$(var gz_args)"/>
+    <arg name="on_exit_shutdown" value="true"/>
+  </include>
+
+  <!--
+    One bridge process for every sensor plus the clock. Per-topic QoS and
+    frame_id come from the YAML, which is why there is no long argument list
+    here.
+  -->
+  <node pkg="ros_gz_bridge" exec="parameter_bridge" name="ros_gz_bridge" output="screen">
+    <param name="config_file" value="$(var bridge_config)"/>
+    <param name="use_sim_time" value="true"/>
+  </node>
+
+</launch>

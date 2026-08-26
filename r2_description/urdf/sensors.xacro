@@ -1,0 +1,125 @@
+<?xml version="1.0"?>
+<!--
+  Sensor links and frames. Geometry and frames only - the Gazebo <sensor>
+  elements that make them produce data live in r2.gazebo.xacro, so this file
+  stays valid for a real robot where the drivers publish instead.
+
+  Frames created here (all children of base_link or chassis_link):
+    imu_link             IMU, near the chassis centre to minimise lever-arm
+                         acceleration when the robot yaws.
+    lidar_link           2D LIDAR, on top of the mast.
+    camera_link          RGB-D body frame, REP-103 (x forward, y left, z up).
+    camera_optical_link  REP-103 optical frame (z forward, x right, y down).
+                         Image and point-cloud data is expressed in THIS frame,
+                         never in camera_link.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ==================================================================== -->
+  <!-- IMU                                                                  -->
+  <!-- ==================================================================== -->
+  <!--
+    Mounted on the yaw axis (x = y = 0). Any lateral offset would make the
+    accelerometer read centripetal acceleration during a spin, which the EKF
+    would have to be told about via the sensor's frame. Keeping it centred
+    avoids the problem entirely.
+  -->
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="imu_link"/>
+    <origin xyz="0 0 ${imu_mount_z}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="imu_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${imu_size} ${imu_size} ${imu_size}"/>
+      </geometry>
+      <material name="r2_accent_red"/>
+    </visual>
+
+    <xacro:box_inertial mass="${imu_mass}"
+                        x="${imu_size}" y="${imu_size}" z="${imu_size}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:box_inertial>
+  </link>
+
+  <!-- ==================================================================== -->
+  <!-- 2D LIDAR                                                             -->
+  <!-- ==================================================================== -->
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="lidar_link"/>
+    <origin xyz="0 0 ${lidar_mount_z}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="lidar_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+      <material name="r2_sensor_blue"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+    </collision>
+
+    <xacro:cylinder_inertial_z mass="${lidar_mass}"
+                               radius="${lidar_radius}" length="${lidar_height}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:cylinder_inertial_z>
+  </link>
+
+  <!-- ==================================================================== -->
+  <!-- RGB-D camera                                                         -->
+  <!-- ==================================================================== -->
+  <joint name="camera_joint" type="fixed">
+    <parent link="chassis_link"/>
+    <child  link="camera_link"/>
+    <!-- Flush with the front face, looking straight ahead. -->
+    <origin xyz="${chassis_x / 2 + camera_x / 2} 0 ${camera_mount_z - chassis_z / 2}"
+            rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${camera_x} ${camera_y} ${camera_z}"/>
+      </geometry>
+      <material name="r2_sensor_blue"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${camera_x} ${camera_y} ${camera_z}"/>
+      </geometry>
+    </collision>
+
+    <xacro:box_inertial mass="${camera_mass}"
+                        x="${camera_x}" y="${camera_y}" z="${camera_z}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:box_inertial>
+  </link>
+
+  <!--
+    REP-103 optical frame: z forward, x right, y down. The rotation below is
+    the standard body -> optical transform. All image, camera_info and point
+    cloud messages are stamped with camera_optical_link.
+  -->
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child  link="camera_optical_link"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <link name="camera_optical_link"/>
+
+</robot>

@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!--
+  Inertia tensor macros for primitive solids of uniform density.
+  These compute real tensors - no identity-matrix placeholders anywhere in
+  this robot. Getting these wrong is a common cause of a simulation that
+  "looks right but drives wrong", especially for a holonomic base where the
+  yaw inertia sets how the chassis responds to differential wheel commands.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!--
+    Solid cuboid of mass m with full side lengths x, y, z, about its centroid.
+      Ixx = m(y^2 + z^2)/12, etc.
+  -->
+  <xacro:macro name="box_inertial" params="mass x y z *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${mass * (y*y + z*z) / 12.0}" ixy="0.0" ixz="0.0"
+        iyy="${mass * (x*x + z*z) / 12.0}" iyz="0.0"
+        izz="${mass * (x*x + y*y) / 12.0}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!--
+    Solid cylinder of mass m, radius r, length h, symmetry axis along LOCAL Z.
+      Ixx = Iyy = m(3r^2 + h^2)/12,  Izz = m r^2 / 2
+  -->
+  <xacro:macro name="cylinder_inertial_z" params="mass radius length *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${mass * (3.0*radius*radius + length*length) / 12.0}" ixy="0.0" ixz="0.0"
+        iyy="${mass * (3.0*radius*radius + length*length) / 12.0}" iyz="0.0"
+        izz="${mass * radius * radius / 2.0}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!--
+    Solid cylinder with its symmetry axis along LOCAL Y. This is the wheel case:
+    the wheel spins about the joint axis (0 1 0), so the polar moment must land
+    on Iyy, not Izz. Using cylinder_inertial_z for a wheel is a silent and very
+    common modelling bug.
+      Ixx = Izz = m(3r^2 + h^2)/12,  Iyy = m r^2 / 2
+  -->
+  <xacro:macro name="cylinder_inertial_y" params="mass radius length *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${mass * (3.0*radius*radius + length*length) / 12.0}" ixy="0.0" ixz="0.0"
+        iyy="${mass * radius * radius / 2.0}"                      iyz="0.0"
+        izz="${mass * (3.0*radius*radius + length*length) / 12.0}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!--
+    Solid sphere of mass m, radius r.  I = 2/5 m r^2 on every axis.
+  -->
+  <xacro:macro name="sphere_inertial" params="mass radius *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${2.0 * mass * radius * radius / 5.0}" ixy="0.0" ixz="0.0"
+        iyy="${2.0 * mass * radius * radius / 5.0}" iyz="0.0"
+        izz="${2.0 * mass * radius * radius / 5.0}"/>
+    </inertial>
+  </xacro:macro>
+
+</robot>

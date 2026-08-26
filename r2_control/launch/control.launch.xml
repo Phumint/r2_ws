@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!--
+  Brings up the ros2_control controllers and the velocity multiplexer.
+
+  In simulation the controller_manager runs inside the Gazebo process (loaded
+  by the gz_ros2_control plugin), so this file only spawns controllers into it
+  and never starts a controller_manager node of its own.
+
+  TIMING: the controller_manager does not exist until the robot model has been
+  spawned into Gazebo. Rather than chaining launch event handlers (which would
+  force this file to Python), we rely on the spawner's own wait - hence the
+  generous controller-manager-timeout. switch-timeout covers the case where the
+  simulation is still paused when the spawner gets its turn.
+-->
+<launch>
+
+  <arg name="controllers_file"
+       default="$(find-pkg-share r2_control)/config/r2_controllers.yaml"
+       description="Controller parameter YAML. Copy the package default rather than editing it."/>
+  <arg name="twist_mux_file"
+       default="$(find-pkg-share r2_control)/config/twist_mux.yaml"
+       description="twist_mux parameter YAML."/>
+  <arg name="controller_manager_timeout" default="60"
+       description="Seconds to wait for the controller_manager service to appear."/>
+  <arg name="start_twist_mux" default="true"/>
+
+  <!-- Publishes /joint_states from the hardware state interfaces. Must be
+       active before robot_state_publisher can produce wheel transforms. -->
+  <node pkg="controller_manager" exec="spawner" name="joint_state_broadcaster_spawner"
+        args="joint_state_broadcaster
+              --controller-manager /controller_manager
+              --controller-manager-timeout $(var controller_manager_timeout)
+              --switch-timeout 30"
+        output="screen"/>
+
+  <!-- Mecanum inverse kinematics + odometry. -->
+  <node pkg="controller_manager" exec="spawner" name="mecanum_drive_controller_spawner"
+        args="mecanum_drive_controller
+              --controller-manager /controller_manager
+              --controller-manager-timeout $(var controller_manager_timeout)
+              --switch-timeout 30
+              --param-file $(var controllers_file)"
+        output="screen"/>
+
+  <!-- Twist -> TwistStamped bridge and priority arbiter. -->
+  <group if="$(var start_twist_mux)">
+    <node pkg="twist_mux" exec="twist_mux" name="twist_mux" output="screen">
+      <param from="$(var twist_mux_file)"/>
+      <remap from="cmd_vel_out" to="/mecanum_drive_controller/reference"/>
+    </node>
+  </group>
+
+</launch>

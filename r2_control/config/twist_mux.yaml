@@ -1,0 +1,39 @@
+# Velocity command multiplexer.
+#
+# WHY THIS EXISTS: mecanum_drive_controller is a chainable controller whose
+# reference input is geometry_msgs/TwistStamped on ~/reference, not the plain
+# geometry_msgs/Twist on /cmd_vel that most ROS teleop and navigation tooling
+# emits. twist_mux with use_stamped:=true both bridges that gap and gives us a
+# priority-arbitrated entry point for when joystick and navigation commands
+# arrive alongside the keyboard.
+#
+# The node's output topic `cmd_vel_out` is remapped in control.launch.xml to
+# /mecanum_drive_controller/reference.
+
+twist_mux:
+  ros__parameters:
+    use_sim_time: true
+
+    # Publish geometry_msgs/TwistStamped. Inputs must be stamped too, e.g.
+    #   ros2 run teleop_twist_keyboard teleop_twist_keyboard \
+    #     --ros-args -p stamped:=true -p frame_id:=base_link -r cmd_vel:=/key_vel
+    use_stamped: true
+
+    topics:
+      # Highest priority: a human with a gamepad overrides everything.
+      joystick:
+        topic: joy_vel
+        timeout: 0.5
+        priority: 100
+
+      keyboard:
+        topic: key_vel
+        timeout: 0.5
+        priority: 90
+
+      # Lowest priority. Nothing publishes here yet -- reserved for nav2, which
+      # is a later step. Declared now so adding nav2 needs no config change.
+      navigation:
+        topic: nav_vel
+        timeout: 0.5
+        priority: 10

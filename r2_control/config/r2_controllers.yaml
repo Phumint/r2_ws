@@ -1,0 +1,81 @@
+# Default controller parameters for the R2 mecanum base.
+#
+# This file is the package default. Do not edit it to tune a specific run --
+# copy it and point the launch argument `controllers_file` at your copy.
+#
+# It is loaded by the gz_ros2_control plugin inside the Gazebo process (see
+# r2_description/urdf/r2.ros2_control.xacro), which is why the controller
+# manager is not launched as a separate node in simulation.
+
+controller_manager:
+  ros__parameters:
+    # 100 Hz. Comfortably above the 50 Hz EKF rate and the 10 Hz LIDAR, and
+    # cheap because there are only four velocity joints to service.
+    update_rate: 100
+    use_sim_time: true
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    mecanum_drive_controller:
+      type: mecanum_drive_controller/MecanumDriveController
+
+
+joint_state_broadcaster:
+  ros__parameters:
+    use_sim_time: true
+
+
+mecanum_drive_controller:
+  ros__parameters:
+    use_sim_time: true
+
+    # Zero the wheels if no reference arrives within this window. This is the
+    # only safety interlock in the stack right now: without it the robot keeps
+    # executing the last command forever if the teleop node dies.
+    reference_timeout: 0.5
+
+    # Joint names must match r2_description/urdf/mecanum_wheel.xacro.
+    # The controller's internal wheel order is FL, FR, RR, RL -- it reads these
+    # by name, so the declaration order here does not matter.
+    front_left_wheel_command_joint_name:  front_left_wheel_joint
+    front_right_wheel_command_joint_name: front_right_wheel_joint
+    rear_right_wheel_command_joint_name:  rear_right_wheel_joint
+    rear_left_wheel_command_joint_name:   rear_left_wheel_joint
+
+    kinematics:
+      # Offset of the controlled frame from the wheel-geometry centre. Zero:
+      # base_link sits at the centroid of the four wheels by construction.
+      base_frame_offset:
+        x: 0.0
+        y: 0.0
+        theta: 0.0
+
+      wheels_radius: 0.076
+
+      # (lx + ly), the single geometric constant in the mecanum IK, where
+      # lx = half wheelbase = 0.220 and ly = half track = 0.270.
+      #
+      # MUST MATCH r2_description/urdf/common_properties.xacro. There is no way
+      # to share a value across the xacro/YAML boundary, so if you change the
+      # wheel offsets there, change this too. A mismatch does not error -- it
+      # silently scales odometry and strafe response.
+      sum_of_robot_center_projection_on_X_Y_axis: 0.490
+
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+
+    # The EKF in r2_bringup owns odom -> base_footprint. If this is ever set
+    # true you get two publishers fighting over the same transform, which shows
+    # up as TF_REPEATED_DATA warnings and a jittering robot in RViz.
+    enable_odom_tf: false
+
+    # Diagonal of the 6x6 covariance, ordered [x, y, z, roll, pitch, yaw].
+    #
+    # The large yaw values are deliberate and are the whole reason the EKF
+    # exists. Mecanum heading derived from wheel encoders is the worst-estimated
+    # quantity on this robot: roller slip on all four wheels compounds into it
+    # with no redundancy to cancel it. Telling the filter that lets the gyro win
+    # on yaw while wheel odometry still supplies vx/vy.
+    pose_covariance_diagonal:  [0.001, 0.001, 1000000.0, 1000000.0, 1000000.0, 0.1]
+    twist_covariance_diagonal: [0.001, 0.001, 1000000.0, 1000000.0, 1000000.0, 0.1]

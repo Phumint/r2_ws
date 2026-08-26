@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!--
+  Wheel-odometry + IMU fusion.
+
+  This node is the ONLY publisher of the odom -> base_footprint transform.
+  mecanum_drive_controller has enable_odom_tf:=false so the two do not fight.
+-->
+<launch>
+
+  <arg name="ekf_config"
+       default="$(find-pkg-share r2_bringup)/config/ekf.yaml"
+       description="EKF parameter YAML. Copy the package default rather than editing it."/>
+
+  <node pkg="robot_localization" exec="ekf_node" name="ekf_filter_node" output="screen">
+    <param from="$(var ekf_config)"/>
+    <!-- Fused output. /odometry/filtered is robot_localization's default name. -->
+    <remap from="odometry/filtered" to="/odometry/filtered"/>
+  </node>
+
+</launch>

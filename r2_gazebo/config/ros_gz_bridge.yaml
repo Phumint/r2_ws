@@ -1,0 +1,109 @@
+# Gazebo Transport <-> ROS 2 topic bridge.
+#
+# FRAME IDs: Gazebo stamps sensor messages with a scoped name such as
+# "r2/lidar_link/lidar", which does not exist in the ROS TF tree. sdformat 14
+# has no <gz_frame_id> support, so the correct frame is injected here via the
+# per-topic `frame_id` key. These MUST match the link names in
+# r2_description/urdf/sensors.xacro.
+#
+# QoS: sensor streams use SENSOR_DATA (best-effort, keep-last). Without it the
+# bridge publishes RELIABLE, which mismatches RViz displays and every nav2
+# subscriber that uses rclcpp::SensorDataQoS, and the data silently never
+# arrives. /clock stays on the default reliable profile.
+
+# ---------------------------------------------------------------------------
+# Clock -- must be first: everything downstream runs on use_sim_time.
+# ---------------------------------------------------------------------------
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# ---------------------------------------------------------------------------
+# IMU
+# ---------------------------------------------------------------------------
+- ros_topic_name: "/imu/data"
+  gz_topic_name: "/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+  qos: SENSOR_DATA
+  frame_id: "imu_link"
+
+# ---------------------------------------------------------------------------
+# 2D LIDAR
+# ---------------------------------------------------------------------------
+- ros_topic_name: "/scan"
+  gz_topic_name: "/scan"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+  qos: SENSOR_DATA
+  frame_id: "lidar_link"
+
+# ---------------------------------------------------------------------------
+# RGB-D camera
+#
+# Gazebo fans an rgbd_camera sensor with <topic>camera</topic> out into
+# /camera/image, /camera/depth_image, /camera/points and /camera/camera_info.
+# They are renamed here to the RealSense-style names most ROS perception
+# tooling expects.
+#
+# All four carry camera_optical_link, NOT camera_link: image data follows the
+# REP-103 optical convention (z forward, x right, y down).
+#
+# COST: /camera/depth/points is the single most expensive entry in this file.
+# If the real-time factor sags, comment it out first -- the depth image alone
+# is far cheaper, and a point cloud can be regenerated from it on demand.
+# ---------------------------------------------------------------------------
+- ros_topic_name: "/camera/color/image_raw"
+  gz_topic_name: "/camera/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+  qos: SENSOR_DATA
+  frame_id: "camera_optical_link"
+
+- ros_topic_name: "/camera/color/camera_info"
+  gz_topic_name: "/camera/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+  qos: SENSOR_DATA
+  frame_id: "camera_optical_link"
+
+- ros_topic_name: "/camera/depth/image_rect_raw"
+  gz_topic_name: "/camera/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+  qos: SENSOR_DATA
+  frame_id: "camera_optical_link"
+
+- ros_topic_name: "/camera/depth/points"
+  gz_topic_name: "/camera/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+  qos: SENSOR_DATA
+  frame_id: "camera_optical_link"
+
+# ---------------------------------------------------------------------------
+# Ground-truth odometry -- MEASUREMENT INSTRUMENT, NOT A ROBOT SENSOR.
+#
+# This is how the mecanum contact model and the EKF get scored: without a
+# ground truth there is no way to distinguish an odometry bug from a physics
+# bug. Nothing in the robot's own control or localisation stack may subscribe
+# to it, or the simulation stops proving anything.
+# ---------------------------------------------------------------------------
+#
+# Single-robot assumption: the plugin publishes on an absolute topic, so
+# spawning a second robot would collide here. Namespace both if that day comes.
+- ros_topic_name: "/ground_truth/odom"
+  gz_topic_name: "/ground_truth/odom"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+  qos: SENSOR_DATA
+  frame_id: "ground_truth_odom"

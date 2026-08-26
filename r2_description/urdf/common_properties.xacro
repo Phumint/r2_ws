@@ -1,0 +1,170 @@
+<?xml version="1.0"?>
+<!--
+  Single source of truth for every dimension, mass and material in the R2 robot.
+  Nothing downstream may hardcode a number that could be derived here.
+
+  Footprint constraint: the robot must fit inside 0.60 x 0.60 m and stand no
+  taller than 0.50 m. The derived properties below keep that true automatically
+  when a primitive is retuned.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ==================================================================== -->
+  <!-- Overall envelope (competition constraint)                            -->
+  <!-- ==================================================================== -->
+  <xacro:property name="footprint_x" value="0.600"/>
+  <xacro:property name="footprint_y" value="0.600"/>
+  <xacro:property name="height_max"  value="0.500"/>
+
+  <!-- ==================================================================== -->
+  <!-- Wheels (152 mm diameter mecanum)                                     -->
+  <!-- ==================================================================== -->
+  <xacro:property name="wheel_radius" value="0.076"/>
+  <xacro:property name="wheel_width"  value="0.060"/>
+  <xacro:property name="wheel_mass"   value="1.20"/>
+
+  <!-- Roller rake angle. Real mecanum rollers sit at 45 deg to the wheel axis. -->
+  <xacro:property name="roller_angle" value="${radians(45)}"/>
+
+  <!-- ==================================================================== -->
+  <!-- Chassis                                                              -->
+  <!-- ==================================================================== -->
+  <!-- Width is derived so that chassis + both wheels == footprint_y exactly. -->
+  <xacro:property name="chassis_x"    value="${footprint_x}"/>
+  <xacro:property name="chassis_y"    value="${footprint_y - 2 * wheel_width}"/>
+  <xacro:property name="chassis_z"    value="0.200"/>
+  <xacro:property name="chassis_mass" value="20.0"/>
+
+  <!-- ==================================================================== -->
+  <!-- Mecanum kinematics                                                   -->
+  <!-- ==================================================================== -->
+  <!-- lx: half the wheelbase (base_link X to wheel centre).                 -->
+  <xacro:property name="wheel_x_off" value="0.220"/>
+  <!-- ly: half the track. Derived so the wheels sit flush with the envelope. -->
+  <xacro:property name="wheel_y_off" value="${(chassis_y + wheel_width) / 2}"/>
+
+  <!--
+    lx + ly, the single geometric constant in the mecanum inverse kinematics.
+    THIS VALUE MUST MATCH
+      mecanum_drive_controller.kinematics.sum_of_robot_center_projection_on_X_Y_axis
+    in r2_control/config/r2_controllers.yaml. If you change wheel_x_off or the
+    chassis width, update that YAML too - there is no way to share the value
+    across the xacro/YAML boundary.
+  -->
+  <xacro:property name="lx_plus_ly" value="${wheel_x_off + wheel_y_off}"/>
+
+  <!-- Wheel velocity limit [rad/s]. 30 rad/s * 0.076 m ~= 2.3 m/s at the rim. -->
+  <xacro:property name="max_wheel_vel" value="30.0"/>
+
+  <!-- ==================================================================== -->
+  <!-- Mecanum contact model                                                -->
+  <!-- ==================================================================== -->
+  <!--
+    Two ways to make the wheels behave holonomically. See r2_description/README.md.
+
+      "friction" - one sphere collision per wheel with anisotropic friction,
+                   with fdir1 pinned to base_footprint via gz:expressed_in so it
+                   holds a fixed 45 deg instead of sweeping with the wheel.
+                   Cheap (4 collisions) and measured holonomic: 0.92 on every
+                   axis. Stops reliably (0/10 failures).
+      "rollers"  - explicit free-spinning roller links at 45 deg. The more
+                   faithful model and the right one to measure against, but it
+                   costs 4 * mecanum_roller_count links and joints, and the
+                   free-spinning rollers make the chassis coast: it fails to
+                   stop on command in roughly 4 trials in 10.
+  -->
+  <!--
+    Exposed as top-level xacro args so they can be swept from the command line
+    while tuning, without editing this file:
+      xacro r2.urdf.xacro mecanum_mu_slip:=0.1 mecanum_mu_grip:=1.5
+    Setting slip == grip gives an ordinary isotropic wheel, which is the
+    baseline to compare against when diagnosing traction problems.
+  -->
+  <!--
+    fdir1 points along the CONTACTING ROLLER'S AXLE. A roller spins freely about
+    that axle, so the contact grips ALONG fdir1 and free-runs ACROSS it. Note
+    which SDF slot each one lands in: grip is <mu>, slip is <mu2>. Swapping them
+    rotates the anisotropy by 90 deg, which is a mirrored wheel - it still drives
+    forward, so the mistake is easy to miss.
+  -->
+  <xacro:property name="mecanum_mu_slip" value="$(arg mecanum_mu_slip)"/>  <!-- across fdir1 -> SDF mu2: rollers free-run -->
+  <xacro:property name="mecanum_mu_grip" value="$(arg mecanum_mu_grip)"/>  <!-- along  fdir1 -> SDF mu : rollers grip -->
+
+  <!--
+    Roller count is a fidelity/cost knob. Too few and the wheel is a coarse
+    polygon: which roller is in contact (and therefore which direction is free
+    to roll) varies a lot with wheel phase, so braking with the wheels locked
+    is inconsistent. Exposed as an arg for sweeping.
+  -->
+  <xacro:property name="mecanum_roller_count"  value="$(arg mecanum_roller_count)"/>
+  <xacro:property name="mecanum_roller_mass"   value="0.05"/>
+  <xacro:property name="mecanum_roller_mu"     value="1.0"/>
+  <!-- Roller barrel radius; the hub is inset by this much so the rollers carry the load. -->
+  <xacro:property name="mecanum_roller_radius" value="0.016"/>
+
+  <!--
+    Roller bearing losses. Zero is not realistic and has a visible consequence:
+    a roller that leaves the ground spinning never slows down, and the chassis
+    can creep along on free-rolling rollers after the wheels are commanded to
+    stop. Small non-zero values give the bearings somewhere to dump that energy.
+  -->
+  <xacro:property name="mecanum_roller_damping"  value="$(arg mecanum_roller_damping)"/>
+  <xacro:property name="mecanum_roller_friction" value="$(arg mecanum_roller_friction)"/>
+
+  <!-- ==================================================================== -->
+  <!-- Sensor mast (raises the LIDAR clear of the chassis)                  -->
+  <!-- ==================================================================== -->
+  <xacro:property name="mast_radius" value="0.030"/>
+  <xacro:property name="mast_height" value="0.130"/>
+  <xacro:property name="mast_mass"   value="0.50"/>
+
+  <!-- ==================================================================== -->
+  <!-- Sensors                                                              -->
+  <!-- ==================================================================== -->
+  <!-- 2D LIDAR, LD19 / RPLIDAR-S2 class -->
+  <xacro:property name="lidar_radius"  value="0.038"/>
+  <xacro:property name="lidar_height"  value="0.055"/>
+  <xacro:property name="lidar_mass"    value="0.19"/>
+  <xacro:property name="lidar_samples" value="640"/>
+  <xacro:property name="lidar_rate"    value="10.0"/>
+  <xacro:property name="lidar_min"     value="0.15"/>
+  <xacro:property name="lidar_max"     value="12.0"/>
+  <xacro:property name="lidar_noise"   value="0.01"/>
+
+  <!-- RGB-D camera, RealSense D435 class -->
+  <xacro:property name="camera_x"      value="0.025"/>
+  <xacro:property name="camera_y"      value="0.090"/>
+  <xacro:property name="camera_z"      value="0.025"/>
+  <xacro:property name="camera_mass"   value="0.072"/>
+  <xacro:property name="camera_width"  value="640"/>
+  <xacro:property name="camera_height" value="480"/>
+  <xacro:property name="camera_hfov"   value="1.274"/>   <!-- ~73 deg -->
+  <xacro:property name="camera_rate"   value="15.0"/>
+  <xacro:property name="camera_near"   value="0.30"/>
+  <xacro:property name="camera_far"    value="8.00"/>
+  <!-- Mounted on the front face, at roughly half chassis height. -->
+  <xacro:property name="camera_mount_z" value="0.150"/>
+
+  <!-- IMU -->
+  <xacro:property name="imu_size"   value="0.020"/>
+  <xacro:property name="imu_mass"   value="0.020"/>
+  <xacro:property name="imu_rate"   value="100.0"/>
+  <xacro:property name="imu_mount_z" value="0.050"/>
+
+  <!-- ==================================================================== -->
+  <!-- Derived heights (for sanity checks and sensor placement)             -->
+  <!-- ==================================================================== -->
+  <xacro:property name="chassis_top_z" value="${chassis_z}"/>
+  <xacro:property name="mast_top_z"    value="${chassis_top_z + mast_height}"/>
+  <xacro:property name="lidar_mount_z" value="${mast_top_z + lidar_height / 2}"/>
+
+  <!-- ==================================================================== -->
+  <!-- Materials (RViz only; Gazebo colours live in r2.gazebo.xacro)        -->
+  <!-- ==================================================================== -->
+  <material name="r2_chassis_grey"><color rgba="0.25 0.27 0.30 1.0"/></material>
+  <material name="r2_wheel_black"> <color rgba="0.10 0.10 0.10 1.0"/></material>
+  <material name="r2_roller_grey"> <color rgba="0.55 0.55 0.58 1.0"/></material>
+  <material name="r2_sensor_blue"> <color rgba="0.15 0.35 0.70 1.0"/></material>
+  <material name="r2_accent_red">  <color rgba="0.70 0.15 0.15 1.0"/></material>
+
+</robot>

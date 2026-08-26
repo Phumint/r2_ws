@@ -1,0 +1,193 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo-specific description: sensor definitions and simulation-only plugins.
+
+  Kept separate from sensors.xacro so that the link/frame layout stays valid for
+  a real robot, where drivers publish this data instead of Gazebo.
+
+  NOTE on frame_id: Gazebo stamps sensor messages with a scoped name such as
+  "r2/lidar_link/lidar", which does not exist in the ROS TF tree. sdformat 14
+  has no <gz_frame_id> support (verified), so the correct frame is injected on
+  the bridge side via the per-topic `frame_id` key in
+  r2_gazebo/config/ros_gz_bridge.yaml. Change the two together.
+
+  Every sensor here also requires a world-level system plugin to exist at all:
+    gpu_lidar / rgbd_camera -> gz-sim-sensors-system
+    imu                     -> gz-sim-imu-system
+  The stock empty.sdf shipped with gz-sim has NEITHER. See r2_gazebo/worlds/.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="r2_gazebo_sensors" params="use_ground_truth">
+
+    <!-- ================================================================== -->
+    <!-- IMU                                                                -->
+    <!-- ================================================================== -->
+    <!--
+      Noise values are representative of an industrial MEMS IMU (ADIS16448
+      class): white noise plus a turn-on bias. Deliberately NOT a zero-noise
+      sensor - the whole point of the EKF is to cope with real sensor error,
+      and a perfect IMU would hide every tuning mistake downstream.
+    -->
+    <gazebo reference="imu_link">
+      <sensor name="imu_sensor" type="imu">
+        <topic>imu</topic>
+        <update_rate>${imu_rate}</update_rate>
+        <always_on>true</always_on>
+        <imu>
+          <angular_velocity>
+            <x><noise type="gaussian">
+              <mean>0.0</mean><stddev>2.0e-4</stddev>
+              <bias_mean>7.5e-6</bias_mean><bias_stddev>8.0e-7</bias_stddev>
+            </noise></x>
+            <y><noise type="gaussian">
+              <mean>0.0</mean><stddev>2.0e-4</stddev>
+              <bias_mean>7.5e-6</bias_mean><bias_stddev>8.0e-7</bias_stddev>
+            </noise></y>
+            <z><noise type="gaussian">
+              <mean>0.0</mean><stddev>2.0e-4</stddev>
+              <bias_mean>7.5e-6</bias_mean><bias_stddev>8.0e-7</bias_stddev>
+            </noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian">
+              <mean>0.0</mean><stddev>1.7e-2</stddev>
+              <bias_mean>0.1</bias_mean><bias_stddev>1.0e-3</bias_stddev>
+            </noise></x>
+            <y><noise type="gaussian">
+              <mean>0.0</mean><stddev>1.7e-2</stddev>
+              <bias_mean>0.1</bias_mean><bias_stddev>1.0e-3</bias_stddev>
+            </noise></y>
+            <z><noise type="gaussian">
+              <mean>0.0</mean><stddev>1.7e-2</stddev>
+              <bias_mean>0.1</bias_mean><bias_stddev>1.0e-3</bias_stddev>
+            </noise></z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+    </gazebo>
+
+    <!-- ================================================================== -->
+    <!-- 2D LIDAR                                                           -->
+    <!-- ================================================================== -->
+    <gazebo reference="lidar_link">
+      <sensor name="lidar_sensor" type="gpu_lidar">
+        <topic>scan</topic>
+        <update_rate>${lidar_rate}</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>${lidar_samples}</samples>
+              <resolution>1</resolution>
+              <min_angle>${-pi}</min_angle>
+              <max_angle>${pi}</max_angle>
+            </horizontal>
+            <!-- Single ring: this is a planar scanner. -->
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0.0</min_angle>
+              <max_angle>0.0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>${lidar_min}</min>
+            <max>${lidar_max}</max>
+            <resolution>0.01</resolution>
+          </range>
+          <!--
+            NOTE: lidar.sdf and camera.sdf declare <type> as a CHILD ELEMENT,
+            whereas the generic noise.sdf used by the IMU declares it as an
+            ATTRIBUTE. Using the attribute form here is silently dropped by
+            sdformat ("XML Attribute[type] in element[noise] not defined").
+          -->
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>${lidar_noise}</stddev>
+          </noise>
+        </lidar>
+      </sensor>
+    </gazebo>
+
+    <!-- ================================================================== -->
+    <!-- RGB-D camera                                                       -->
+    <!-- ================================================================== -->
+    <!--
+      Attached to camera_link with zero pose: a Gazebo camera looks down its
+      own +X, which is exactly where camera_link points. The optical-convention
+      reframing is handled by camera_optical_link in the TF tree.
+
+      This sensor is by far the most expensive thing in the world. If the
+      real-time factor sags, drop the /camera/depth/points bridge entry first -
+      the depth image alone is much cheaper than the point cloud.
+    -->
+    <gazebo reference="camera_link">
+      <sensor name="rgbd_sensor" type="rgbd_camera">
+        <topic>camera</topic>
+        <update_rate>${camera_rate}</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <camera>
+          <horizontal_fov>${camera_hfov}</horizontal_fov>
+          <image>
+            <width>${camera_width}</width>
+            <height>${camera_height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>${camera_near}</near>
+            <far>${camera_far}</far>
+          </clip>
+          <depth_camera>
+            <clip>
+              <near>${camera_near}</near>
+              <far>${camera_far}</far>
+            </clip>
+          </depth_camera>
+          <!-- Child-element <type>, as camera.sdf requires. See the LIDAR note. -->
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.007</stddev>
+          </noise>
+          <!-- Honoured by sdformat 14; the bridge also injects this frame. -->
+          <optical_frame_id>camera_optical_link</optical_frame_id>
+        </camera>
+      </sensor>
+    </gazebo>
+
+    <!-- ================================================================== -->
+    <!-- Ground-truth odometry (measurement instrument, not a robot sensor)  -->
+    <!-- ================================================================== -->
+    <!--
+      This is how we score the mecanum contact model and the EKF. Without a
+      ground truth there is no way to tell an odometry bug from a physics bug.
+      It publishes the true pose of base_footprint; nothing in the robot's own
+      control or localisation stack is allowed to subscribe to it.
+    -->
+    <xacro:if value="${use_ground_truth}">
+      <gazebo>
+        <plugin filename="gz-sim-odometry-publisher-system"
+                name="gz::sim::systems::OdometryPublisher">
+          <odom_frame>ground_truth_odom</odom_frame>
+          <robot_base_frame>base_footprint</robot_base_frame>
+          <!--
+            Leading slash matters: the plugin treats this as an absolute
+            gz-transport topic. Without it the name is still resolved to
+            /ground_truth/odom, but the model-scoped /model/r2/ground_truth/odom
+            is ALSO advertised while carrying no data, which is an easy way to
+            bridge the wrong one and see silence.
+          -->
+          <odom_topic>/ground_truth/odom</odom_topic>
+          <odom_publish_frequency>50</odom_publish_frequency>
+          <dimensions>3</dimensions>
+        </plugin>
+      </gazebo>
+    </xacro:if>
+
+  </xacro:macro>
+
+</robot>

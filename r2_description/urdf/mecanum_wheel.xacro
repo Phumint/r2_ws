@@ -1,0 +1,280 @@
+<?xml version="1.0"?>
+<!--
+  Mecanum wheel macro.
+
+  ONE macro, instantiated four times. Each wheel differs only in its (x, y)
+  offset and its roller rake direction.
+
+  ROLLER DIRECTION (the "X configuration", the standard mecanum layout):
+
+      front_left  (+1)   ///     \\\   (-1)  front_right
+                            \   /
+                             \ /
+                             / \
+                            /   \
+      rear_left   (-1)   \\\     ///   (+1)  rear_right
+
+  Wheels on the same diagonal share a rake direction. Getting this wrong is the
+  classic mecanum bug: the robot will still drive forward and still spin, but
+  strafing turns into a slow rotation or nothing at all.
+
+  CONTACT MODEL - see the discussion in r2_description/README.md.
+    contact_model="friction": one sphere collision with anisotropic friction.
+    contact_model="rollers" : explicit free-spinning roller links.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       xmlns:gz="http://gazebosim.org/schema">
+
+  <!-- ==================================================================== -->
+  <!-- A single free-spinning roller (used only by contact_model="rollers")  -->
+  <!-- ==================================================================== -->
+  <xacro:macro name="mecanum_roller" params="prefix index roller_dir">
+
+    <!-- Angular position of this roller around the wheel axle. -->
+    <xacro:property name="phi"
+                    value="${2.0 * pi * index / mecanum_roller_count}"/>
+    <!-- Radius at which the roller centres sit, so the barrels reach wheel_radius. -->
+    <xacro:property name="r_hub" value="${wheel_radius - mecanum_roller_radius}"/>
+    <!-- Roller barrel length: spans most of the wheel width at its rake angle. -->
+    <xacro:property name="r_len" value="${wheel_width * 0.7}"/>
+
+    <!--
+      Rotating the wheel frame by phi about Y gives a local frame whose
+      X is radially outward, Y is the axle, and Z is tangential. The roller
+      spin axis then sits at roller_angle between local Y and local Z.
+    -->
+    <xacro:property name="r_axis_y" value="${cos(roller_angle)}"/>
+    <xacro:property name="r_axis_z" value="${roller_dir * sin(roller_angle)}"/>
+    <!-- Roll that carries the cylinder's default +Z onto that spin axis. -->
+    <xacro:property name="r_roll" value="${atan2(-r_axis_y, r_axis_z)}"/>
+
+    <joint name="${prefix}_roller_${index}_joint" type="continuous">
+      <parent link="${prefix}_wheel_link"/>
+      <child  link="${prefix}_roller_${index}_link"/>
+      <origin xyz="${r_hub * cos(phi)} 0 ${-r_hub * sin(phi)}"
+              rpy="0 ${phi} 0"/>
+      <axis xyz="0 ${r_axis_y} ${r_axis_z}"/>
+      <dynamics damping="${mecanum_roller_damping}"
+                friction="${mecanum_roller_friction}"/>
+    </joint>
+
+    <link name="${prefix}_roller_${index}_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${r_roll} 0 0"/>
+        <geometry>
+          <cylinder radius="${mecanum_roller_radius}" length="${r_len}"/>
+        </geometry>
+        <material name="r2_roller_grey"/>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 0" rpy="${r_roll} 0 0"/>
+        <geometry>
+          <cylinder radius="${mecanum_roller_radius}" length="${r_len}"/>
+        </geometry>
+      </collision>
+
+      <!-- Spin axis is local Z before the r_roll rotation is applied. -->
+      <xacro:cylinder_inertial_z mass="${mecanum_roller_mass}"
+                                 radius="${mecanum_roller_radius}" length="${r_len}">
+        <origin xyz="0 0 0" rpy="${r_roll} 0 0"/>
+      </xacro:cylinder_inertial_z>
+    </link>
+
+    <gazebo reference="${prefix}_roller_${index}_link">
+      <mu1>${mecanum_roller_mu}</mu1>
+      <mu2>${mecanum_roller_mu}</mu2>
+      <kp>1e6</kp>
+      <kd>100.0</kd>
+    </gazebo>
+
+  </xacro:macro>
+
+  <!-- ==================================================================== -->
+  <!-- Decorative roller, no joint. Used by contact_model="friction" so the  -->
+  <!-- wheel still reads as a mecanum wheel visually.                        -->
+  <!-- ==================================================================== -->
+  <xacro:macro name="mecanum_roller_visual" params="index roller_dir">
+    <xacro:property name="phi"
+                    value="${2.0 * pi * index / mecanum_roller_count}"/>
+    <xacro:property name="r_hub" value="${wheel_radius - mecanum_roller_radius}"/>
+    <xacro:property name="r_len" value="${wheel_width * 0.7}"/>
+    <xacro:property name="r_axis_y" value="${cos(roller_angle)}"/>
+    <xacro:property name="r_axis_z" value="${roller_dir * sin(roller_angle)}"/>
+    <xacro:property name="r_roll" value="${atan2(-r_axis_y, r_axis_z)}"/>
+
+    <visual>
+      <!--
+        Compose the phi rotation about Y with the roller's own roll. Expressed
+        directly here because a visual has no frame of its own to hang it on.
+      -->
+      <origin xyz="${r_hub * cos(phi)} 0 ${-r_hub * sin(phi)}"
+              rpy="${r_roll} ${phi} 0"/>
+      <geometry>
+        <cylinder radius="${mecanum_roller_radius}" length="${r_len}"/>
+      </geometry>
+      <material name="r2_roller_grey"/>
+    </visual>
+  </xacro:macro>
+
+  <!-- ==================================================================== -->
+  <!-- The wheel                                                            -->
+  <!-- ==================================================================== -->
+  <!--
+    prefix      : front_left | front_right | rear_left | rear_right
+    x_off/y_off : wheel centre relative to base_link
+    roller_dir  : +1 or -1, the rake direction (see diagram above)
+  -->
+  <xacro:macro name="mecanum_wheel" params="prefix x_off y_off roller_dir contact_model">
+
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child  link="${prefix}_wheel_link"/>
+      <origin xyz="${x_off} ${y_off} 0" rpy="0 0 0"/>
+      <!-- All four wheels spin about base_link Y. REP-103: +Y is left. -->
+      <axis xyz="0 1 0"/>
+      <limit effort="40.0" velocity="${max_wheel_vel}"/>
+      <dynamics damping="0.01" friction="0.0"/>
+    </joint>
+
+    <link name="${prefix}_wheel_link">
+
+      <xacro:if value="${contact_model == 'rollers'}">
+        <!--
+          Hub is inset by one roller diameter so it never reaches the ground:
+          the rollers must carry the load, or the wheel behaves like a caster.
+        -->
+        <visual>
+          <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+          <geometry>
+            <cylinder radius="${wheel_radius - 2*mecanum_roller_radius}"
+                      length="${wheel_width}"/>
+          </geometry>
+          <material name="r2_wheel_black"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+          <geometry>
+            <cylinder radius="${wheel_radius - 2*mecanum_roller_radius}"
+                      length="${wheel_width}"/>
+          </geometry>
+        </collision>
+      </xacro:if>
+
+      <xacro:if value="${contact_model == 'friction'}">
+        <!-- Full-radius cylinder: this is the surface that touches the ground. -->
+        <visual>
+          <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+          <geometry>
+            <cylinder radius="${wheel_radius - mecanum_roller_radius}"
+                      length="${wheel_width}"/>
+          </geometry>
+          <material name="r2_wheel_black"/>
+        </visual>
+        <!-- Visual-only rollers, so the wheel still reads as mecanum. -->
+        <xacro:loop_rollers_visual index="0" roller_dir="${roller_dir}"/>
+        <!--
+          A SPHERE, not the cylinder the visual shows. The friction model needs
+          exactly one contact point that does not move as the wheel turns; a
+          cylinder on a plane gives a line contact whose point count flips
+          between one and two, and the friction direction is only meaningful at
+          a single point. Radius is the wheel radius, so the sphere touches the
+          ground in the same place the tyre would.
+        -->
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <sphere radius="${wheel_radius}"/>
+          </geometry>
+        </collision>
+      </xacro:if>
+
+      <!-- Spins about Y, so the polar moment must land on Iyy. -->
+      <xacro:cylinder_inertial_y mass="${wheel_mass}"
+                                 radius="${wheel_radius}" length="${wheel_width}">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:cylinder_inertial_y>
+    </link>
+
+    <xacro:if value="${contact_model == 'rollers'}">
+      <!-- Hub must not grip: all traction comes from the rollers. -->
+      <gazebo reference="${prefix}_wheel_link">
+        <mu1>0.0</mu1>
+        <mu2>0.0</mu2>
+      </gazebo>
+      <xacro:loop_rollers index="0" prefix="${prefix}" roller_dir="${roller_dir}"/>
+    </xacro:if>
+
+    <xacro:if value="${contact_model == 'friction'}">
+      <!--
+        Anisotropic friction standing in for the rollers.
+
+        fdir1 is the CONTACTING ROLLER'S AXLE direction. A roller spins freely
+        about its own axle, so the contact GRIPS along that axle and runs free
+        across it: mu (along fdir1) is the grip, mu2 is the slip. Swapping the
+        two rotates the anisotropy by 90 deg, which is the mirrored wheel - it
+        still drives forward, so the mistake survives a casual test.
+
+        gz:expressed_in pins fdir1 to base_footprint. Without it sdformat
+        resolves fdir1 in the COLLISION-FIXED frame, which rotates with the
+        wheel: a constant (a, b, 0) then projects onto the ground as
+        (a*cos(theta), b), so the Y component is constant while X oscillates and
+        the low-friction direction averages to +/-Y over a revolution. The wheel
+        grips fore-aft and slips sideways - forward-only motion, which is
+        exactly what this model used to do. base_footprint is the correct frame
+        name because fixed-joint lumping merges base_link into it.
+
+        REQUIRES xmlns:gz on the <robot> element of THIS file. xacro parses
+        every included file as its own XML document, so a declaration in
+        r2.urdf.xacro does not reach here; without the local one the build
+        fails with "unbound prefix", which is at least loud.
+
+        The nested collision/surface form is deliberate: the flat <mu1>/<fdir1>
+        shorthand accepted by <gazebo reference> carries no XML attributes, so
+        gz:expressed_in cannot be attached to it.
+      -->
+      <gazebo reference="${prefix}_wheel_link">
+        <collision>
+          <surface>
+            <friction>
+              <ode>
+                <mu>${mecanum_mu_grip}</mu>
+                <mu2>${mecanum_mu_slip}</mu2>
+                <!--
+                  fdir1 is emitted only for a genuinely anisotropic wheel. With
+                  slip == grip the wheel is an ordinary tyre, and a stray
+                  friction direction on an isotropic contact is at best
+                  meaningless and at worst a degenerate friction basis. Setting
+                  both coefficients equal is therefore a true isotropic baseline
+                  for diagnosing traction problems.
+                -->
+                <xacro:unless value="${mecanum_mu_slip == mecanum_mu_grip}">
+                  <fdir1 gz:expressed_in="base_footprint">${cos(roller_angle)} ${roller_dir * sin(roller_angle)} 0</fdir1>
+                </xacro:unless>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+      </gazebo>
+    </xacro:if>
+
+  </xacro:macro>
+
+  <!-- ==================================================================== -->
+  <!-- Recursive loops (xacro has no for-loop)                              -->
+  <!-- ==================================================================== -->
+  <xacro:macro name="loop_rollers" params="index prefix roller_dir">
+    <xacro:if value="${index &lt; mecanum_roller_count}">
+      <xacro:mecanum_roller prefix="${prefix}" index="${index}" roller_dir="${roller_dir}"/>
+      <xacro:loop_rollers index="${index + 1}" prefix="${prefix}" roller_dir="${roller_dir}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="loop_rollers_visual" params="index roller_dir">
+    <xacro:if value="${index &lt; mecanum_roller_count}">
+      <xacro:mecanum_roller_visual index="${index}" roller_dir="${roller_dir}"/>
+      <xacro:loop_rollers_visual index="${index + 1}" roller_dir="${roller_dir}"/>
+    </xacro:if>
+  </xacro:macro>
+
+</robot>

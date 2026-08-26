@@ -1,0 +1,8 @@
+# colcon artefacts. These must never appear inside src/ -- if they do, someone
+# ran `colcon build` from a subdirectory instead of the workspace root.
+build/
+install/
+log/
+
+__pycache__/
+*.pyc
