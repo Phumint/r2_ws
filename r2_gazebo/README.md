@@ -46,9 +46,35 @@ rotates the anisotropy by 90°, which still drives forward — see `r2_descripti
 
 | File | Role |
 |---|---|
-| `world.launch.xml` | Gazebo + the topic bridge. No robot. |
+| `world.launch.xml` | Gazebo + the topic bridge. No robot. Takes `physics_engine` (blank = the world's own choice). |
 | `spawn_robot.launch.xml` | `robot_state_publisher` + `ros_gz_sim create` |
 | `empty_world.launch.xml` | The two above + controllers. The isolated test rig. |
+
+## Worlds
+
+| World | Contents | RTF (headless, no robot) |
+|---|---|---|
+| `worlds/empty.sdf` | ground plane + sun | 1.00 |
+| `robocon2027_field/worlds/robocon2027_field_only.sdf` | the 11 x 11 m game field | 1.00 |
+| `robocon2027_field/worlds/robocon2027.sdf` | field + 53 game objects | **0.014** |
+
+The field worlds live in the `robocon2027_field` package and are generated from the team's
+Fusion CAD by its `tools/make_field.py`. Launch them with
+`ros2 launch r2_bringup field_sim.launch.xml` — see that package's README for the frame,
+the start poses and the real-time-factor trade-off.
+
+**Every world this robot is spawned into must declare `gz-sim-sensors-system` and
+`gz-sim-imu-system`.** The field world as generated from CAD declared no system plugins at
+all, which costs you every sensor with no error message; the plugin block is now emitted by
+`make_field.py`, and `r2_bringup`'s
+`test_worlds_load_the_plugins_the_sensors_need` fails if any world loses them.
+
+**Do not switch physics engine to buy back the full world's real-time factor.** `bullet` and
+`bullet-featherstone` run it at RTF 1.00 but neither supports the anisotropic `fdir1`
+friction a mecanum base needs — measured strafe efficiency drops to 0.00 (`friction` model)
+and −0.02 (`rollers`), i.e. the robot cannot strafe at all. dartsim is the only engine this
+robot drives correctly on. The `physics_engine` argument on `world.launch.xml` exists to
+reproduce that comparison.
 
 ## Bridged topics
 
@@ -267,3 +293,12 @@ a contact approximation against — but it should not be used to drive.
   easy one to bridge by mistake.
 - The `<plane>` ground collision is finite at its `<size>`. A robot that slides far enough
   falls off the edge.
+- **Resting contacts, not shape count, are what cost real time.** The game field's 87 static
+  collision primitives run at RTF 1.00; adding the 53 game objects — which start in 84 pairs
+  of exact zero-gap contact — drops it to 0.014. If a world crawls, look for bodies resting
+  on each other before you look at how many shapes it has.
+- **Measure holonomic motion away from walls and platform edges.** `holonomic_check.py`
+  drives ~0.5 m per case from wherever the robot is; started in a Start Zone it strafes
+  straight into the field boundary and reports a low efficiency that is really a collision.
+  Separately, within ~5 cm of the Level 1 platform face, diagonal efficiency genuinely
+  collapses to 0.27 with ~5.5° of yaw error while every other case stays normal.

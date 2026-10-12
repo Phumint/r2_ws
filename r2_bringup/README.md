@@ -41,6 +41,111 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 
 Headless: `ros2 launch r2_bringup sim.launch.xml gui:=false rviz:=false`
 
+## Run on the Robocon 2027 game field
+
+```bash
+ros2 launch r2_bringup field_sim.launch.xml objects:=false   # recommended for driving work
+ros2 launch r2_bringup field_sim.launch.xml                  # full field, all 53 game objects
+```
+
+Same stack as `sim.launch.xml`, on `robocon2027_field`'s world, spawned inside a
+rulebook-legal Start Zone instead of at the world origin.
+
+**Field frame**: metres, origin = **south-west field corner on the floor**, x east,
+y north, z up. Red half x < 5.5, Blue half x > 5.5. Floor z 0, Level 1 z 0.6,
+Level 2 z 0.9, Central Pillar top z 1.7.
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `objects` | `true` | Spawn the 40 Earth Blocks, 12 Sky Blocks and Mustika. **Read the cost below.** |
+| `team` | `red` | `red` or `blue`; picks the default start `x` |
+| `world` | derived from `objects` | Overrides `objects` if given explicitly |
+| `x`, `y`, `z`, `yaw` | `1.75, 0.85, 0.15, 1.5708` | Red Start Zone 2 (BR), facing north |
+| `physics_engine` | `""` | Blank honours the world's choice. **Do not set this — see below.** |
+
+Everything else is forwarded to `sim.launch.xml` unchanged.
+
+### Start pose
+
+The 2027 rulebook names two robots: **TR** (Transporter Robot) and **BR** (Builder Robot).
+**R2 is the BR.** Rule 3.2.2 permits BR in the Transfer Area, Level 1 (L1) and Level 2 (L2),
+and lets it touch the Ground Area during retries or while navigating onto the ramp/stairs.
+
+> The current build carries no manipulator — that is a placeholder for movement and
+> navigation testing, not a statement that BR needs none. Nothing about the start pose or
+> launch changes when the real end-effector is added; only the URDF does.
+
+Rule 4.1.2 lets the team choose which of the two 700 × 700 mm Start Zone boxes takes TR and
+which takes BR, and requires the robot to be *completely* inside it. At 600 × 600 mm the
+base has 50 mm of clearance on every side at the box centre.
+
+| | zone 1 (TR) | zone 2 (BR, default) |
+|---|---|---|
+| Red | (0.85, 0.85) | (1.75, 0.85) |
+| Blue | (9.25, 0.85) | (10.15, 0.85) |
+
+Zone 2 is BR's default because its x lane lines up with the ramp and the L1 stairs
+(both x 1.5–2.5) — exactly what BR needs to reach L1/L2. `yaw 1.5708` faces north, into the
+field. Use `x:=0.85` (or `team:=blue` with the corresponding x) for TR's Ground-only box
+instead.
+
+### Game objects cost 70x real time
+
+Measured on this workspace, headless, dartsim, no robot:
+
+| world | RTF |
+|---|---|
+| `robocon2027_field_only.sdf` (field only) | **1.00** |
+| `robocon2027.sdf` (field + 53 objects) | **0.014** |
+
+The objects start in 84 pairs of exact zero-gap contact — the Earth Blocks are ten touching
+two-high stacks per side, sitting flush on the floor — and the simulator spends its entire
+budget resolving those resting contacts at the 1 ms step. That is roughly 70 s of wall time
+per second of sim: usable for inspecting the field or a short scripted pick, not for
+driving, odometry runs or anything timed.
+
+So use `objects:=false` for navigation, odometry and controller work, which is everything
+this stack currently does, and switch the objects on when the blocks actually matter.
+
+### Do not "fix" that with a different physics engine
+
+`bullet` and `bullet-featherstone` both run the full world at RTF 1.00, which is tempting.
+Neither reproduces the anisotropic `fdir1` friction a mecanum base needs. Measured on the
+empty world, 2 s per case at 0.3 m/s:
+
+| engine | contact model | forward | strafe | rotate | diagonal |
+|---|---|---|---|---|---|
+| dartsim | `friction` | 0.88 | 0.88 | 0.90 | 0.86 |
+| bullet-featherstone | `friction` | 0.92 | **0.00** | **0.00** | **0.16** |
+| bullet-featherstone | `rollers` | 0.94 | **−0.02** | 0.79 | **0.12** |
+
+Under bullet the robot cannot strafe at all — it is no longer a holonomic base.
+**dartsim is the only engine this robot drives correctly on.** The `physics_engine`
+argument exists to reproduce that comparison, not to be switched on.
+
+### Measured drive quality on the field
+
+Field-only world, open ground at (1.0, 1.2), 2 s per case at 0.3 m/s, against the same
+measurement on `empty.sdf`:
+
+| case | empty.sdf | field | |
+|---|---|---|---|
+| forward | 0.88 | 0.88 | |
+| strafe | 0.88 | 0.88 | |
+| rotate | 0.90 | 0.89 | |
+| diagonal | 0.86 | 0.86 | |
+
+The field floor's `mu` 0.6 (against empty.sdf's 1.0) costs nothing measurable. **Driving on
+the field is the same as driving on the empty world.**
+
+One exception, worth knowing before you debug it: within ~5 cm of the **Level 1 platform's
+vertical face**, diagonal efficiency collapses to 0.27/0.40 and picks up ~5.5° of yaw error,
+while forward, strafe and rotate stay normal. Bisected to the single collision shape
+`c010_level_1_area__red`; the mirrored blue platform 3 m further away has no effect, so it
+is proximity-dependent, not a property of the field as a whole. Raising `mecanum_mu_grip`
+to 2.0 removes the yaw error but not the shortfall. Keep clearance from the platform edge
+when measuring, or expect that number.
+
 ## Localisation
 
 `robot_localization`'s `ekf_node`, configured in `config/ekf.yaml`.

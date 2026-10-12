@@ -15,12 +15,15 @@
   <exec_depend>r2_description</exec_depend>
   <exec_depend>r2_control</exec_depend>
   <exec_depend>r2_gazebo</exec_depend>
+  <!-- ABU Robocon 2027 game field world, used by field_sim.launch.xml. -->
+  <exec_depend>robocon2027_field</exec_depend>
   <exec_depend>robot_localization</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>robocon2027_field</test_depend>
   <test_depend>python3-pytest</test_depend>
   <test_depend>python3-yaml</test_depend>
   <test_depend>xacro</test_depend>

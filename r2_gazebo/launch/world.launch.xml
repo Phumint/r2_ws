@@ -21,13 +21,33 @@
        default="$(find-pkg-share r2_gazebo)/config/ros_gz_bridge.yaml"/>
 
   <!--
+    Physics engine OVERRIDE. Empty means "use whatever the world asks for", which
+    is the right default: the engine belongs with the world, not with the launch.
+    empty.sdf says nothing and so gets gz sim's default (dartsim), which is what
+    every measured number in this package's README was recorded on.
+    robocon2027_field's worlds declare dartsim too (<physics type="ode">), and
+    that is deliberate: dartsim is the only engine this robot drives correctly
+    on. bullet and bullet-featherstone cannot reproduce the anisotropic fdir1
+    friction a mecanum base needs, so the robot cannot strafe on them at all.
+    Do not change this to buy back the full world's real-time factor. See the
+    field package README.
+
+    This argument exists so the engines can be compared without editing an SDF:
+      ros2 launch ... physics_engine:=gz-physics-bullet-featherstone-plugin
+      ros2 launch ... physics_engine:=gz-physics-dartsim-plugin
+  -->
+  <arg name="physics_engine" default=""
+       description="Blank to honour the world's own choice. Otherwise a gz-physics
+                    engine plugin name, which overrides the world."/>
+
+  <!--
     Assemble the gz command line:
       -s   server only (no GUI)
       -r   run immediately rather than starting paused
       -v3  warnings and errors, without the per-frame chatter of -v4
   -->
   <let name="gz_args"
-       value="$(eval &quot;('-s ' if '$(var gui)' == 'false' else '') + ('' if '$(var paused)' == 'true' else '-r ') + '-v3 $(var world)'&quot;)"/>
+       value="$(eval &quot;('-s ' if '$(var gui)' == 'false' else '') + ('' if '$(var paused)' == 'true' else '-r ') + ('' if '$(var physics_engine)' == '' else '--physics-engine $(var physics_engine) ') + '-v3 $(var world)'&quot;)"/>
 
   <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py">
     <arg name="gz_args" value="$(var gz_args)"/>

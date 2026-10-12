@@ -19,6 +19,8 @@
   <arg name="world" default="$(find-pkg-share r2_gazebo)/worlds/empty.sdf"
        description="World SDF. Must retain the Sensors and Imu system plugins."/>
   <arg name="gui" default="true" description="Gazebo GUI."/>
+  <arg name="physics_engine" default=""
+       description="Blank honours the world's own engine choice. See r2_gazebo/launch/world.launch.xml."/>
   <arg name="rviz" default="true" description="Start RViz with the sim config."/>
   <arg name="paused" default="false"/>
   <arg name="use_sim_time" default="true"/>
@@ -48,6 +50,7 @@
     <arg name="world" value="$(var world)"/>
     <arg name="gui" value="$(var gui)"/>
     <arg name="paused" value="$(var paused)"/>
+    <arg name="physics_engine" value="$(var physics_engine)"/>
   </include>
 
   <!-- 2. Robot description + spawn -->

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<robot name="mustika">
+  <material name="ball"><color rgba="0.922 0.843 0.235 1.0"/></material>
+  <link name="mustika">
+    <inertial><mass value="0.270"/><inertia ixx="0.0019845" ixy="0" ixz="0" iyy="0.0019845" iyz="0" izz="0.0019845"/></inertial>
+    <visual><geometry><sphere radius="0.1050"/></geometry><material name="ball"/></visual>
+    <collision><geometry><sphere radius="0.1050"/></geometry></collision>
+  </link>
+  <gazebo reference="mustika"><mu1>0.6</mu1><mu2>0.6</mu2></gazebo>
+</robot>

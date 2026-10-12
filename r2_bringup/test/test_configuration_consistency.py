@@ -20,6 +20,7 @@ DESCRIPTION = Path(get_package_share_directory('r2_description'))
 CONTROL = Path(get_package_share_directory('r2_control'))
 GAZEBO = Path(get_package_share_directory('r2_gazebo'))
 BRINGUP = Path(get_package_share_directory('r2_bringup'))
+FIELD = Path(get_package_share_directory('robocon2027_field'))
 
 TOP_LEVEL_XACRO = DESCRIPTION / 'urdf' / 'r2.urdf.xacro'
 
@@ -225,7 +226,7 @@ def test_non_link_bridged_frames_are_anchored_by_a_static_transform():
         f'tf2 MessageFilter consumer will queue and drop their messages')
 
 
-@pytest.mark.parametrize('pkg', [DESCRIPTION, CONTROL, GAZEBO, BRINGUP])
+@pytest.mark.parametrize('pkg', [DESCRIPTION, CONTROL, GAZEBO, BRINGUP, FIELD])
 def test_xml_files_are_well_formed(pkg):
     """Catches the '--' in XML comments trap.
 
@@ -239,3 +240,37 @@ def test_xml_files_are_well_formed(pkg):
             ET.parse(path)
         except ET.ParseError as exc:
             pytest.fail(f'{path} is not well-formed XML: {exc}')
+
+
+# Every world this robot can be spawned into must load these, or the sensor in the
+# second column produces nothing at all.
+REQUIRED_WORLD_PLUGINS = {
+    'gz-sim-physics-system': 'physics does not step',
+    'gz-sim-user-commands-system': 'ros_gz_sim create cannot spawn the robot',
+    'gz-sim-scene-broadcaster-system': 'no scene state for the GUI',
+    'gz-sim-sensors-system': 'gpu_lidar and rgbd_camera produce nothing',
+    'gz-sim-imu-system': 'the imu produces nothing',
+}
+
+
+@pytest.mark.parametrize('world', sorted((GAZEBO / 'worlds').glob('*.sdf'))
+                                  + sorted((FIELD / 'worlds').glob('*.sdf')),
+                         ids=lambda p: p.name)
+def test_worlds_load_the_plugins_the_sensors_need(world):
+    """The most expensive silent failure available in this workspace.
+
+    gz sim does not error on a world that declares no system plugins: it falls back
+    to a built-in default set of Physics, UserCommands and SceneBroadcaster, which
+    has NEITHER Sensors NOR Imu. Spawn this robot into such a world and /scan,
+    /camera/... and /imu/data simply never publish. Nothing in the console says why.
+
+    The field world shipped from the CAD generator had none of them. The block is
+    emitted by robocon2027_field/tools/make_field.py, so regenerating the field
+    keeps it; this test is what catches the day it stops doing so.
+    """
+    declared = {p.get('filename') for p in ET.parse(world).iter('plugin')}
+    missing = {name: why for name, why in REQUIRED_WORLD_PLUGINS.items()
+               if name not in declared}
+    assert not missing, (
+        f'{world.name} does not load: '
+        + '; '.join(f'{name} ({why})' for name, why in sorted(missing.items())))

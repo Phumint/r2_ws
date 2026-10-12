@@ -1,0 +1,160 @@
+<?xml version="1.0"?>
+<!--
+  TOP-LEVEL SIMULATION LAUNCH, ON THE ABU ROBOCON 2027 GAME FIELD.
+
+  Thin wrapper over sim.launch.xml: same stack (Gazebo + bridge + robot +
+  controllers + EKF + RViz), but on robocon2027_field/worlds/robocon2027.sdf and
+  spawned inside a rulebook-legal Start Zone instead of at the world origin.
+
+  sim.launch.xml keeps empty.sdf as ITS default on purpose. That world is the
+  clean-room rig for answering "is the drive itself working?", and it stays the
+  thing you reach for first. This file is for "does the robot work on the field?".
+
+  Usage:
+    ros2 launch r2_bringup field_sim.launch.xml
+    ros2 launch r2_bringup field_sim.launch.xml objects:=false   (70x faster, see below)
+    ros2 launch r2_bringup field_sim.launch.xml team:=blue
+    ros2 launch r2_bringup field_sim.launch.xml gui:=false rviz:=false
+    ros2 launch r2_bringup field_sim.launch.xml x:=0.85               (TR's box instead of BR's)
+
+  Drive it:
+    (see the package README for the teleop command; it cannot be written here
+     because XML comments may not contain a double hyphen)
+
+  FIELD FRAME: metres, origin = SOUTH-WEST field corner on the floor surface,
+  x east, y north, z up. Red half is x below 5.5, Blue half x above 5.5.
+  Floor z 0, Level 1 z 0.6, Level 2 z 0.9, Central Pillar top z 1.7.
+-->
+<launch>
+
+  <!--
+    GAME OBJECTS, AND WHAT THEY COST.
+
+    true  (default) robocon2027.sdf           field + all 53 game objects
+    false           robocon2027_field_only.sdf  field only
+
+    Measured on this workspace, headless, dartsim, no robot:
+
+        field only              RTF 1.00
+        field + 53 objects      RTF 0.014      about 70x slower
+
+    The objects start in 84 pairs of exact zero-gap contact (the Earth Blocks are
+    10 touching two-high stacks per side, sitting flush on the floor) and the
+    simulator spends its whole budget resolving those resting contacts at the
+    1 ms step. So the full world is faithful but roughly 70 s of wall time per
+    second of sim: fine for inspecting the field or a short scripted pick, not
+    for driving, odometry runs or anything timed.
+
+    Use objects:=false for navigation, odometry and controller work, which is
+    everything this stack currently does. Switch it on when the blocks matter.
+
+    NOTE: do NOT try to buy this back by changing physics engine. bullet and
+    bullet-featherstone both run the full world at RTF 1.00, but neither
+    reproduces the anisotropic fdir1 friction a mecanum base needs. Measured
+    strafe efficiency on the empty world under bullet-featherstone is 0.00 with
+    the friction contact model and -0.02 with rollers: the robot cannot strafe at
+    all. dartsim is the only engine this robot drives correctly on.
+  -->
+  <arg name="objects" default="true"
+       description="Spawn the 40 Earth Blocks, 12 Sky Blocks and the Mustika. See the
+                    real-time-factor note above before leaving this on."/>
+
+  <let name="world_file"
+       value="$(eval &quot;'robocon2027.sdf' if '$(var objects)' == 'true' else 'robocon2027_field_only.sdf'&quot;)"/>
+
+  <arg name="world"
+       default="$(find-pkg-share robocon2027_field)/worlds/$(var world_file)"
+       description="Overrides the objects argument if given explicitly. Any world used
+                    here must carry the Sensors and Imu system plugins, or this robot's
+                    LIDAR, camera and IMU go silent with no error."/>
+
+  <!--
+    START POSE.
+
+    The 2027 rulebook names two robots: TR (Transporter Robot) and BR (Builder
+    Robot). This machine is the BR: rule 3.2.2 permits BR in the Transfer Area,
+    Level 1 (L1) and Level 2 (L2), and it may touch the Ground Area during
+    retries or while navigating onto the ramp/stairs. (The current build carries
+    no manipulator yet: that is a placeholder for movement/navigation testing,
+    not a statement that BR needs none. Nothing here changes when the real
+    end-effector is added; only the URDF does.)
+
+    Rule 4.1.2 lets the team pick which of the two 700 x 700 mm Start Zone boxes
+    takes TR and which takes BR, and requires the robot to be COMPLETELY inside
+    it. This base is 600 x 600 mm, so the box centre leaves 50 mm on every side.
+
+    Zone 2 is chosen for BR because its x lane (1.4 to 2.1 red) lines up with
+    the ramp and the L1 stairs, both at x 1.5 to 2.5: exactly what BR needs to
+    reach L1/L2. Zone 1 is left for TR, which stays on the Ground Area.
+
+                        zone 1 (TR)        zone 2 (BR, default)
+        Red             (0.85, 0.85)       (1.75, 0.85)
+        Blue            (9.25, 0.85)       (10.15, 0.85)
+
+    yaw faces north, into the field: the ramp and L1 stairs BR needs are north
+    of the Start Zone.
+  -->
+  <arg name="team" default="red" description="red | blue. Selects the default start zone."/>
+
+  <let name="start_x" value="$(eval &quot;10.15 if '$(var team)' == 'blue' else 1.75&quot;)"/>
+
+  <arg name="x" default="$(var start_x)"
+       description="Override to place the robot anywhere on the field, e.g. x:=0.85 for
+                    the Ground-only TR start box instead of BR's."/>
+  <arg name="y" default="0.85"/>
+  <!--
+    z 0.15 matches spawn_robot.launch.xml: dropping the robot a few centimetres
+    lets the contacts settle instead of starting inter-penetrated with the floor.
+    The field floor top surface is z 0, so this is the same drop as on empty.sdf.
+  -->
+  <arg name="z" default="0.15"/>
+  <arg name="yaw" default="1.5708" description="Face north (positive y), into the field."/>
+
+  <!-- Forwarded verbatim to sim.launch.xml. See that file for what each one does. -->
+  <arg name="gui" default="true"/>
+  <arg name="rviz" default="true"/>
+  <arg name="physics_engine" default=""
+       description="Blank honours the world's choice, which for this world is
+                    dartsim (the only engine this robot drives correctly on). See
+                    the note in r2_gazebo/launch/world.launch.xml."/>
+  <arg name="paused" default="false"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="contact_model" default="friction"/>
+  <arg name="publish_roller_states" default="false"/>
+  <arg name="mecanum_mu_slip" default="0.05"/>
+  <arg name="mecanum_mu_grip" default="1.0"/>
+  <arg name="use_ground_truth" default="true"/>
+  <arg name="localization" default="true"/>
+  <arg name="controllers_file"
+       default="$(find-pkg-share r2_control)/config/r2_controllers.yaml"/>
+  <arg name="ekf_config"
+       default="$(find-pkg-share r2_bringup)/config/ekf.yaml"/>
+
+  <!--
+    sim.launch.xml already derives the odom to ground_truth_odom anchor from
+    x/y/yaw as the inverse of the spawn pose, so a non-origin spawn like this one
+    needs no extra handling: /ground_truth/odom reads field coordinates while the
+    EKF reads metres travelled from the Start Zone.
+  -->
+  <include file="$(find-pkg-share r2_bringup)/launch/sim.launch.xml">
+    <arg name="world" value="$(var world)"/>
+    <arg name="gui" value="$(var gui)"/>
+    <arg name="rviz" value="$(var rviz)"/>
+    <arg name="physics_engine" value="$(var physics_engine)"/>
+    <arg name="paused" value="$(var paused)"/>
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    <arg name="contact_model" value="$(var contact_model)"/>
+    <arg name="publish_roller_states" value="$(var publish_roller_states)"/>
+    <arg name="mecanum_mu_slip" value="$(var mecanum_mu_slip)"/>
+    <arg name="mecanum_mu_grip" value="$(var mecanum_mu_grip)"/>
+    <arg name="use_ground_truth" value="$(var use_ground_truth)"/>
+    <arg name="localization" value="$(var localization)"/>
+    <arg name="controllers_file" value="$(var controllers_file)"/>
+    <arg name="ekf_config" value="$(var ekf_config)"/>
+    <arg name="x" value="$(var x)"/>
+    <arg name="y" value="$(var y)"/>
+    <arg name="z" value="$(var z)"/>
+    <arg name="yaw" value="$(var yaw)"/>
+  </include>
+
+</launch>

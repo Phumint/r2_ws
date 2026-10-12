@@ -23,6 +23,18 @@ source install/setup.bash
 ros2 launch r2_bringup sim.launch.xml
 ```
 
+On the Robocon 2027 game field instead of the empty world:
+
+```bash
+ros2 launch r2_bringup field_sim.launch.xml objects:=false   # recommended for driving work
+ros2 launch r2_bringup field_sim.launch.xml                  # full field, all 53 game objects
+```
+
+R2 is the Builder Robot (BR): it spawns in Red Start Zone 2 at (1.75, 0.85) facing north,
+the box that lines up with the ramp and L1 stairs BR needs to reach L1/L2. `objects:=true`
+is faithful but runs at RTF 0.014 — see [`r2_bringup/README.md`](r2_bringup/README.md) for
+why, for the field frame, and for switching to TR's box (`x:=0.85`).
+
 Drive it, in a second terminal:
 
 ```bash
@@ -46,6 +58,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 | [`r2_control`](r2_control/README.md) | `ros2_control` controllers, velocity multiplexer | yes |
 | [`r2_gazebo`](r2_gazebo/README.md) | Worlds, ROS↔Gazebo bridge, validation tools | no |
 | [`r2_bringup`](r2_bringup/README.md) | Top-level composition + EKF localisation | yes |
+| [`robocon2027_field`](robocon2027_field/README.md) | ABU Robocon 2027 game field: world, URDF, game objects | no |
 
 ## Architecture
 
@@ -182,6 +195,6 @@ ros2 run r2_gazebo odometry_check.py
 colcon test && colcon test-result --all
 ```
 
-29 tests: XML well-formedness across every package, plus integration checks on the seams
+18 tests: XML well-formedness across every package, plus integration checks on the seams
 between the description, controller config and bridge config — the cross-package constants
 that fail silently at runtime rather than loudly at build time.

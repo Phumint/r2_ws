@@ -1,0 +1,479 @@
+[
+ {
+  "name": "earth_block_red_01",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.4,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_02",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.75,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_03",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.1,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_04",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.45,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_05",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.8,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_06",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.4,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_07",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.75,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_08",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.1,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_09",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.45,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_10",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.8,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_red_11",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.4,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_12",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.75,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_13",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.1,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_14",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.45,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_15",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.8,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_16",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.4,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_17",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   1.75,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_18",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.1,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_19",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.45,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_red_20",
+  "urdf": "earth_block_red.urdf",
+  "xyz": [
+   2.8,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_01",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.0,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_02",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.35,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_03",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.7,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_04",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.05,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_05",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.4,
+   9.85,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_06",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.0,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_07",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.35,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_08",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.7,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_09",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.05,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_10",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.4,
+   10.2,
+   0.175
+  ]
+ },
+ {
+  "name": "earth_block_blue_11",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.0,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_12",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.35,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_13",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.7,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_14",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.05,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_15",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.4,
+   9.85,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_16",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.0,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_17",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.35,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_18",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   8.7,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_19",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.05,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "earth_block_blue_20",
+  "urdf": "earth_block_blue.urdf",
+  "xyz": [
+   9.4,
+   10.2,
+   0.525
+  ]
+ },
+ {
+  "name": "sky_block_01__r_up",
+  "urdf": "sky_block_red_up.urdf",
+  "xyz": [
+   5.02,
+   2.28,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_02__r_up",
+  "urdf": "sky_block_red_up.urdf",
+  "xyz": [
+   5.5,
+   2.28,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_03__b_up",
+  "urdf": "sky_block_blue_up.urdf",
+  "xyz": [
+   5.98,
+   2.28,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_04__b_up",
+  "urdf": "sky_block_blue_up.urdf",
+  "xyz": [
+   5.26,
+   2.04,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_05__r_up",
+  "urdf": "sky_block_red_up.urdf",
+  "xyz": [
+   5.74,
+   2.04,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_06__b_up",
+  "urdf": "sky_block_blue_up.urdf",
+  "xyz": [
+   5.02,
+   1.8,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_07__r_up",
+  "urdf": "sky_block_red_up.urdf",
+  "xyz": [
+   5.98,
+   1.8,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_08__r_up",
+  "urdf": "sky_block_red_up.urdf",
+  "xyz": [
+   5.26,
+   1.56,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_09__b_up",
+  "urdf": "sky_block_blue_up.urdf",
+  "xyz": [
+   5.74,
+   1.56,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_10__r_up",
+  "urdf": "sky_block_red_up.urdf",
+  "xyz": [
+   5.02,
+   1.32,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_11__b_up",
+  "urdf": "sky_block_blue_up.urdf",
+  "xyz": [
+   5.5,
+   1.32,
+   0.1
+  ]
+ },
+ {
+  "name": "sky_block_12__b_up",
+  "urdf": "sky_block_blue_up.urdf",
+  "xyz": [
+   5.98,
+   1.32,
+   0.1
+  ]
+ },
+ {
+  "name": "mustika",
+  "urdf": "mustika.urdf",
+  "xyz": [
+   5.5,
+   9.3,
+   0.55408
+  ]
+ }
+]

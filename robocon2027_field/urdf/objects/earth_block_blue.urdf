@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot name="earth_block_blue">
+  <material name="top"><color rgba="0.196 0.000 1.000 1.0"/></material>
+  <material name="bottom"><color rgba="0.196 0.000 1.000 1.0"/></material>
+  <material name="side"><color rgba="0.196 0.000 1.000 1.0"/></material>
+  <link name="earth_block_blue">
+    <inertial><mass value="0.600"/><inertia ixx="0.01225" ixy="0" ixz="0" iyy="0.01225" iyz="0" izz="0.01225"/></inertial>
+    <visual name="body"><geometry><box size="0.3500 0.3500 0.3480"/></geometry><material name="side"/></visual>
+    <visual name="top"><origin xyz="0 0 0.1745"/><geometry><box size="0.3500 0.3500 0.001"/></geometry><material name="top"/></visual>
+    <visual name="bottom"><origin xyz="0 0 -0.1745"/><geometry><box size="0.3500 0.3500 0.001"/></geometry><material name="bottom"/></visual>
+    <collision><geometry><box size="0.3500 0.3500 0.3500"/></geometry></collision>
+  </link>
+  <gazebo reference="earth_block_blue"><mu1>0.50</mu1><mu2>0.50</mu2></gazebo>
+</robot>

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot name="sky_block_blue_up">
+  <material name="top"><color rgba="0.196 0.000 1.000 1.0"/></material>
+  <material name="bottom"><color rgba="0.875 0.133 0.133 1.0"/></material>
+  <material name="side"><color rgba="0.804 0.667 0.490 1.0"/></material>
+  <link name="sky_block_blue_up">
+    <inertial><mass value="0.220"/><inertia ixx="0.00146667" ixy="0" ixz="0" iyy="0.00146667" iyz="0" izz="0.00146667"/></inertial>
+    <visual name="body"><geometry><box size="0.2000 0.2000 0.1980"/></geometry><material name="side"/></visual>
+    <visual name="top"><origin xyz="0 0 0.0995"/><geometry><box size="0.2000 0.2000 0.001"/></geometry><material name="top"/></visual>
+    <visual name="bottom"><origin xyz="0 0 -0.0995"/><geometry><box size="0.2000 0.2000 0.001"/></geometry><material name="bottom"/></visual>
+    <collision><geometry><box size="0.2000 0.2000 0.2000"/></geometry></collision>
+  </link>
+  <gazebo reference="sky_block_blue_up"><mu1>0.50</mu1><mu2>0.50</mu2></gazebo>
+</robot>
